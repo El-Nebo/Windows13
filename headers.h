@@ -25,7 +25,8 @@ int id ;
 int arrivalTime ; 
 int runTime; 
 int priority ;
-
+int status; // 0 reday 1 running
+bool validData; // as I want the msgsnd to send even if the data was garbage
 }; 
 
 
@@ -88,3 +89,9 @@ void destroyClk(bool terminateAll)
         killpg(getpgrp(), SIGINT);
     }
 }
+
+struct msgschedulerprocess 
+{
+    long mtype ; 
+    int remainingTime ;  
+}; 
