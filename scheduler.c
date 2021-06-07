@@ -24,13 +24,11 @@ int main(int argc, char *argv[])
     intializationrec.mtype=1;
 
     int rec = msgrcv(msg_id, &intializationrec, sizeof(intializationrec.Algonum) + sizeof(intializationrec.numProccess), 0, !IPC_NOWAIT);
-
     if (rec == -1)
-        perror("cannot recieve from the genrator ");
+        perror("cannot recieve from the genrator ----");
 
     else
     {
-
         printf("Recieved from the genrator \n");
         printf("Num of proccess is recieved %d \n ", intializationrec.numProccess);
         printf(" chosen Algorithm is %d \n ", intializationrec.Algonum);
@@ -38,6 +36,37 @@ int main(int argc, char *argv[])
         NumProcesses = intializationrec.numProccess;
         choseAlgo = intializationrec.Algonum;
     }
+
+
+    struct processesBuff package;
+    int Count = 0;
+    int prevClk = 0;
+    struct processData p[10];
+    while(1){
+        while(getClk() == prevClk){}
+        int currentTime = getClk();
+        printf("Scheduler: Current Time is %d\n", currentTime);
+        int cnt = 0;
+        while(1){
+            rec = msgrcv(msg_id,&package, sizeof(package.procs)+sizeof(package.IsProcess),0, !IPC_NOWAIT);
+            if (rec == -1)
+                perror("error in sending from generator to scheduler ");
+            if(package.IsProcess == -1) break;
+            p[cnt++] = package.procs;
+        }
+        
+
+
+        for(int i = 0 ; i < cnt ; i++){
+            printf("%d\t", p[i].id);
+            printf("%d\t", p[i].arrivalTime);
+            printf("%d\t", p[i].runTime);
+            printf("%d\n", p[i].priority);
+        }
+
+        prevClk = currentTime;
+    }
+
 
     switch (choseAlgo)
     {
@@ -54,73 +83,73 @@ int main(int argc, char *argv[])
 }
 
 //first come first serve
-void fcfs()
-{
-    struct processData *head;
-    struct Queue *q = createQueue();
-    int pid = 0;
-    //**********************************************
-    key_t key_id = ftok("key", 100);
-    int msg_id = msgget(key_id, 0666 | IPC_CREAT);
-    struct msgschedulerprocess msg_sch_proc;
-    //************************************************
-    while (true)
-    {
-        //**************************************Reciving processes************************************
-        int recievedprocs = msgrcv(msg_id, &recPack, sizeof(recPack.procs), 0, !IPC_NOWAIT);
+// void fcfs()
+// {
+//     struct processData *head;
+//     struct Queue *q = createQueue();
+//     int pid = 0;
+//     //**********************************************
+//     key_t key_id = ftok("key", 100);
+//     int msg_id = msgget(key_id, 0666 | IPC_CREAT);
+//     struct msgschedulerprocess msg_sch_proc;
+//     //************************************************
+//     while (true)
+//     {
+//         //**************************************Reciving processes************************************
+//         int recievedprocs = msgrcv(msg_id, &recPack, sizeof(recPack.procs), 0, !IPC_NOWAIT);
 
-        if (recievedprocs == -1)
-        {
-            perror("error in recieveng from generator to scheduler ");
-            break;
-        }
+//         if (recievedprocs == -1)
+//         {
+//             perror("error in recieveng from generator to scheduler ");
+//             break;
+//         }
 
-        else if (recievedProcs.validData)
-        {
-            recievedProcs = recPack.procs;
-            //set all recieved proceeses as ready
-            recievedProcs.status = 0;
-            printf("process Arrival Time %d \n ", recievedProcs.arrivalTime);
-            printf("process running Time %d \n ", recievedProcs.runTime);
-            printf("process priority %d \n ", recievedProcs.priority);
-            printf("process id  %d \n ", recievedProcs.id);
+//         else if (1)
+//         {
+//             recievedProcs = recPack.procs;
+//             //set all recieved proceeses as ready
+//             recievedProcs.status = 0;
+//             printf("process Arrival Time %d \n ", recievedProcs.arrivalTime);
+//             printf("process running Time %d \n ", recievedProcs.runTime);
+//             printf("process priority %d \n ", recievedProcs.priority);
+//             printf("process id  %d \n ", recievedProcs.id);
 
-            //**************************************************************************
-            head = &recievedProcs;
-            struct Node *n = createNode(head);
-            QueuePush(q, n);
-            head = QueueFront(q);
-            if (head->status == 0)
-            {
-                head->status = 1;
-                pid = fork();
-                if (pid == -1)
-                    perror("error in fork");
-                else if (pid == 0) /* only execute this if child(process) */
-                {
-                    system("gcc process.c -o process.out");
-                    char geClk[500];
-                    sprintf(geClk, "%d", getClk());
-                    char ruTime[500];
-                    sprintf(ruTime, "%d", head->runTime);
-                     char algo[500];
-                    sprintf(algo, "%d", choseAlgo);
-                    execl("process.out", "process", geClk, ruTime,algo,NULL);
-                }
-                else //scheduler
-                {
-                           int msgRcv = msgrcv(msg_id, &msg_sch_proc, sizeof(msg_sch_proc.remainingTime), 0, !IPC_NOWAIT);
-                          if(msgRcv==-1)
-                          perror("Error in REceiveing from process\n");
-                          else
-                          {
-                              printf("Current process id is %d and it is remaining = %d",head->arrivalTime,msg_sch_proc.remainingTime);
-                              if(msg_sch_proc.remainingTime==0)
-                              QueuePop(q);
-                          } 
-                }
-            }
-        }
-    }
+//             //**************************************************************************
+//             head = &recievedProcs;
+//             struct Node *n = createNode(head);
+//             QueuePush(q, n);
+//             head = QueueFront(q);
+//             if (head->status == 0)
+//             {
+//                 head->status = 1;
+//                 pid = fork();
+//                 if (pid == -1)
+//                     perror("error in fork");
+//                 else if (pid == 0) /* only execute this if child(process) */
+//                 {
+//                     system("gcc process.c -o process.out");
+//                     char geClk[500];
+//                     sprintf(geClk, "%d", getClk());
+//                     char ruTime[500];
+//                     sprintf(ruTime, "%d", head->runTime);
+//                      char algo[500];
+//                     sprintf(algo, "%d", choseAlgo);
+//                     execl("process.out", "process", geClk, ruTime,algo,NULL);
+//                 }
+//                 else //scheduler
+//                 {
+//                            int msgRcv = msgrcv(msg_id, &msg_sch_proc, sizeof(msg_sch_proc.remainingTime), 0, !IPC_NOWAIT);
+//                           if(msgRcv==-1)
+//                           perror("Error in REceiveing from process\n");
+//                           else
+//                           {
+//                               printf("Current process id is %d and it is remaining = %d",head->arrivalTime,msg_sch_proc.remainingTime);
+//                               if(msg_sch_proc.remainingTime==0)
+//                               QueuePop(q);
+//                           } 
+//                 }
+//             }
+//         }
+//     }
 
-}
+// }
