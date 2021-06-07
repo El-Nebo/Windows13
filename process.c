@@ -8,7 +8,7 @@ int main(int agrc, char *argv[])
 
     remainingtime = (int*)initShm(65,&SCH_Proc_Shm);
 
-    int prevClk = -1;
+    int prevClk = 0;
     while (*remainingtime > 0)
     {
         while(getClk() == prevClk);

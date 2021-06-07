@@ -13,3 +13,7 @@ all: clean build
 run:
 	./process_generator.out
 	
+abbas:
+	gcc process.c -o process.out
+	gcc process_generator.c -o abbas
+	./abbas processes.txt 1

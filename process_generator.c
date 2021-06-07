@@ -69,9 +69,10 @@ int main(int argc, char *argv[])
     // creating clk and scheduler process and start execute them
 
     int Clk_ID = fork();
-    if (Clk_ID == 0)
+    if (Clk_ID == 0){
+        system("gcc clk.c -o clk.out");
         execl("clk.out","clk",NULL);
-
+    }
     int schedID = fork();
     if (schedID == 0){
         system("gcc scheduler.c -o scheduler.out -lm");
@@ -91,7 +92,7 @@ int main(int argc, char *argv[])
     {
         while(getClk() == prevClk){}
         int currentTime = getClk();
-        printf("Process Generator: Current Time is %d\n", currentTime);
+        //printf("Process Generator: Current Time is %d\n", currentTime);
 
         while(Processdata[Count].arrivalTime == currentTime){
             sendMessage(PG_SCH_MsgQ,Processdata[Count]);

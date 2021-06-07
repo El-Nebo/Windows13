@@ -1,3 +1,4 @@
+#pragma once
 #include <stdio.h> //if you don't use scanf/printf change this include
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -23,11 +24,13 @@ typedef short bool;
 struct Process
 {
     int id ; 
+    int pid;
     int arrivalTime ; 
     int runTime; 
     int priority ;
     int status; // 0 reday 1 running
     int IsProcess;
+    int remainingTime;
 }; 
 typedef struct Process Process;
 

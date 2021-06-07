@@ -1,3 +1,4 @@
+#pragma once
 #include <stdlib.h>
 #include <stdio.h>
 #include "../headers.h"
@@ -6,11 +7,13 @@ struct Node {
     Process value;
     struct Node* next;
 };
-  
+typedef struct Node Node;
+
 struct Queue {
     int size;
     struct Node *front, *back;
 };
+typedef struct Queue Queue;
   
 struct Node* createNode(Process* val)
 {
@@ -81,31 +84,32 @@ int QueueSize(struct Queue* q){
     return q->size;
 }
 
-int main(){
-    struct Queue* q = createQueue();
-    printf("%d \n", QueueSize(q));
+// int main(){
+//     struct Queue* q = createQueue();
     
-    Process p;
-    p.id = 55;
-    p.runTime = 12;
-    QueuePush(q,&p);
-    printf("%d \n", QueueSize(q));
+//     Process p;
+//     p.id = 55;
+//     p.runTime = 12;
+//     QueuePush(q,&p);
 
-    p.id = 66;
-    p.runTime = 13;
-    QueuePush(q,&p);
-    printf("%d \n", QueueSize(q));
+//     p.id = 66;
+//     p.runTime = 13;
+//     QueuePush(q,&p);
 
-    p.id = 77;
-    p.runTime = 14;
-    QueuePush(q,&p);
+//     p.id = 77;
+//     p.runTime = 14;
+//     QueuePush(q,&p);
 
-    printf("%d \n", QueueSize(q));
+//     printf("%d %d \n",QueueFront(q).id , QueueFront(q).runTime);
+//     printf("%d %d \n",QueueBack(q).id , QueueBack(q).runTime);
 
-    QueuePop(q);
-    printf("%d \n", QueueSize(q));
 
-    QueuePop(q);
-    printf("%d \n", QueueSize(q));
+//     QueuePop(q);
+//     printf("%d %d \n",QueueFront(q).id , QueueFront(q).runTime);
+//     printf("%d %d \n",QueueBack(q).id , QueueBack(q).runTime);
 
-}
+//     QueuePop(q);
+//     printf("%d %d \n",QueueFront(q).id , QueueFront(q).runTime);
+//     printf("%d %d \n",QueueBack(q).id , QueueBack(q).runTime);
+
+// }
