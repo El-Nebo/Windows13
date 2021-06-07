@@ -1,26 +1,12 @@
 #include "headers.h"
-// void clearResources(int sig);
+void clearResources(int sig);
 
-enum Algo
-{
-    FCSC, // First Come First Serve
-    SJP,  // Shortest Job First
-    HPF,  // Preemtivr Highest priorty  first
-    SRTN, //  Shortest Remaining Time Next
-    RR    // Round Robin
-};
-
-void clearResources(int signum)
-{
-    //TODO Clears all resources in case of interruption
-
-    kill(getppid(),SIGKILL);
-}
-
+int PG_SCH_MsgQ;
+int EXIT = 0;
 
 int main(int argc, char *argv[])
 {
-    //signal(SIGINT, clearResources);
+    signal(SIGINT, clearResources);
 
     FILE *Process_Data;
 
@@ -30,13 +16,11 @@ int main(int argc, char *argv[])
         exit(-1);
     }
 
-    char dummy[100];
-
-    struct processData* Processdata = malloc(sizeof(struct processData*) * 100); // 100 formemmory size can be changed later
+    Process Processdata[100];// = malloc(sizeof(struct processData*) * 100); // 100 formemmory size can be changed later
 
     Process_Data = fopen(argv[1], "r");
     int processCount = 0;
-    struct processData temp;
+    Process temp;
 
     ///////////////////////////////////////////////////////////////////
     char input[200];
@@ -57,6 +41,7 @@ int main(int argc, char *argv[])
         Processdata[processCount].arrivalTime= atoi(numtemp[1]);
         Processdata[processCount].runTime= atoi(numtemp[2]);
         Processdata[processCount].priority= atoi(numtemp[3]);
+        Processdata[processCount].IsProcess = 1;
 
         printf("%d\t", Processdata[processCount].id);
         printf("%d\t", Processdata[processCount].arrivalTime);
@@ -76,112 +61,45 @@ int main(int argc, char *argv[])
     printf("---Chosen Algo is: %s\n",Algoschoic[chosenAlgo]);
 
     //________________________________TODO: Read other parameters
-
-
+    char args[2][2];
+    strcpy(args[0],argv[2]-1);
+    strcpy(args[1],"0");
+    //args[1] = "0\n";
     /////////////////////////////////////////////////////////////////////////////////
     // creating clk and scheduler process and start execute them
+
     int Clk_ID = fork();
-    if (Clk_ID == -1){
-        printf(" \n Error in forking clock  \n");
-    }
+    if (Clk_ID == 0)
+        execl("clk.out","clk",NULL);
 
-    else if (Clk_ID == 0){
-        printf("\n fork clock successfull\n");
-        execl("clk.out", "clk", NULL);
+    int schedID = fork();
+    if (schedID == 0){
+        system("gcc scheduler.c -o scheduler.out -lm");
+        execl("scheduler.out", "scheduler", args[0],args[1]);
     }
-
-    int Scheduler_ID = fork();
-    if (Scheduler_ID == -1)
-        printf("\n error in forking schedular\n");
-
-    else if (Scheduler_ID == 0)
-    {
-        printf("\n fork Scheduler successfull\n ");
-        system("gcc scheduler.c -o scheduler.out");
-        execl("scheduler.out", "scheduler", NULL);
-    }
+        
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////
-
-    // beginning of sending all the intialiezed process to the scheduler to deal with them one by one
-
-    key_t key_id = ftok("key", 66);
-    int msg_id = msgget(key_id, 0666 | IPC_CREAT);
-
-    struct msgEntryBuff intialization;
-    intialization.Algonum = chosenAlgo;
-    intialization.numProccess = processCount;
-    intialization.mtype = 1;
-
-    int sendval = msgsnd(msg_id, &intialization, sizeof(intialization.Algonum) + sizeof(intialization.numProccess), !IPC_NOWAIT);
-
-    if (sendval == -1)
-        perror("error in sending from generator to scheduler ");
-
-    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
+    PG_SCH_MsgQ = initMsgQueue(66);
 
     initClk();
     printf("clock: %d\n", getClk());
     int Count = 0;
-    int prevClk = 0;
-    while (true)
+    int prevClk = -1;
+    while (!EXIT)
     {
         while(getClk() == prevClk){}
         int currentTime = getClk();
-        printf("PG: Current Time is %d\n", currentTime);
-
-        struct processesBuff package;
+        printf("Process Generator: Current Time is %d\n", currentTime);
 
         while(Processdata[Count].arrivalTime == currentTime){
-            package.IsProcess = 1;
-            package.procs = Processdata[Count];
-
-            int sendprocs = msgsnd(msg_id, &package, sizeof(package.procs)+sizeof(package.IsProcess), !IPC_NOWAIT);
-            if (sendval == -1)
-                perror("error in sending from generator to scheduler ");
-
+            sendMessage(PG_SCH_MsgQ,Processdata[Count]);
             Count++;
         }
-
-        package.IsProcess = -1;
-        int sendprocs = msgsnd(msg_id, &package, sizeof(package.procs)+sizeof(package.IsProcess), !IPC_NOWAIT);
-        if (sendval == -1)
-            perror("error in sending from generator to scheduler ");
-
-        // int tempCount = 0;
-        // package.mtype = 1; // any dummy
-        // while (Processdata[Count+tempCount].arrivalTime == currentTime) tempCount++;
-        // package.NumProcsinClk = tempCount;
-
-        // package.procs = (struct processData*)malloc(sizeof(struct processData)*tempCount);
-
-        // tempCount = 0;
-
-        // while (Processdata[Count].arrivalTime == currentTime)//  prepare the package and fly it to scheduler
-        //     package.procs[tempCount++] = Processdata[Count++];
-
-
-        // int sendprocs = msgsnd(msg_id, &package, sizeof(package.procs)+sizeof(package.NumProcsinClk), !IPC_NOWAIT);
-
-        // if (sendval == -1)
-        //     perror("error in sending from generator to scheduler ");
-
-
-        // package.mtype = 1; // any dummy
-        // //Processdata[Count].validData=false;
-        // package.procs = Processdata[Count];
-
-        // int sendprocs = msgsnd(msg_id, &package, sizeof(package.procs), !IPC_NOWAIT);
-
-        // if (sendval == -1)
-        //     perror("error in sending from generator to scheduler ");
-        
-
-        // communicaation with scheduler and sending to him the process which is ready for manipulation on it
-
-        //prepare the package which are gonna send to the scheduler
+        Process End_Connection;
+        End_Connection.IsProcess = 0;
+        sendMessage(PG_SCH_MsgQ,End_Connection);
 
         prevClk = currentTime;
     }
@@ -189,4 +107,15 @@ int main(int argc, char *argv[])
     destroyClk(true);
 }
 
+
+
+void clearResources(int signum)
+{
+    //TODO Clears all resources in case of interruption
+    msgctl(PG_SCH_MsgQ, IPC_RMID, (struct msqid_ds *)0);
+    destroyClk(true);
+    EXIT = 1;
+    signal(SIGINT, SIG_DFL);
+    //kill(getppid(),SIGKILL);
+}
 

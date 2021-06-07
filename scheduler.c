@@ -1,91 +1,85 @@
 #include "headers.h"
-#include "queue.h"
-void fcfs();
-key_t key_id;
-int msg_id;
-struct processData recievedProcs;
-struct processesBuff recPack;
+
+void FCSC();
+void SJP();
+void HPF();
+void SRTN();
+void RR();
+
 int choseAlgo = -1;
+int quanta;
+int PG_SCH_MsgQ;
+int *ProcessRemainingTime;
+int Sch_P_Shm_ID;
 int main(int argc, char *argv[])
 {
+    choseAlgo = atoi(argv[1]);
+    quanta = atoi(argv[2]);
+    printf("%d %d\n",choseAlgo,quanta);
+
     initClk();
 
-    //TODO: implement the scheduler.
-    //TODO: upon termination release the clock resources.
-
-    key_id = ftok("key", 66);
-    msg_id = msgget(key_id, 0666 | IPC_CREAT);
-
-    struct msgEntryBuff intializationrec;
-
-    int NumProcesses = -1;
-
-    int recievedProcess = 0;
-    intializationrec.mtype=1;
-
-    int rec = msgrcv(msg_id, &intializationrec, sizeof(intializationrec.Algonum) + sizeof(intializationrec.numProccess), 0, !IPC_NOWAIT);
-    if (rec == -1)
-        perror("cannot recieve from the genrator ----");
-
-    else
-    {
-        printf("Recieved from the genrator \n");
-        printf("Num of proccess is recieved %d \n ", intializationrec.numProccess);
-        printf(" chosen Algorithm is %d \n ", intializationrec.Algonum);
-
-        NumProcesses = intializationrec.numProccess;
-        choseAlgo = intializationrec.Algonum;
-    }
-
-
-    struct processesBuff package;
-    int Count = 0;
-    int prevClk = 0;
-    struct processData p[10];
-    while(1){
-        while(getClk() == prevClk){}
-        int currentTime = getClk();
-        printf("Scheduler: Current Time is %d\n", currentTime);
-        int cnt = 0;
-        while(1){
-            rec = msgrcv(msg_id,&package, sizeof(package.procs)+sizeof(package.IsProcess),0, !IPC_NOWAIT);
-            if (rec == -1)
-                perror("error in sending from generator to scheduler ");
-            if(package.IsProcess == -1) break;
-            p[cnt++] = package.procs;
-        }
-        
-
-
-        for(int i = 0 ; i < cnt ; i++){
-            printf("%d\t", p[i].id);
-            printf("%d\t", p[i].arrivalTime);
-            printf("%d\t", p[i].runTime);
-            printf("%d\n", p[i].priority);
-        }
-
-        prevClk = currentTime;
-    }
-
-
+    PG_SCH_MsgQ = initMsgQueue(66);
+    ProcessRemainingTime = (int*)initShm(65,&Sch_P_Shm_ID);
     switch (choseAlgo)
     {
-        //sirst come first serve fcfs
     case 0:
-        fcfs();
+        FCSC();
         break;
-
-    default:
+    case 1:
+        SJP();
+        break;
+    case 2:
+        HPF();
+        break;
+    case 3:
+        SRTN();
+        break;
+    case 4:
+        RR();
         break;
     }
 
-    //  destroyClk(true);
+    msgctl(PG_SCH_MsgQ, IPC_RMID, (struct msqid_ds *)0);
+    shmctl(Sch_P_Shm_ID, IPC_RMID, NULL);
+    destroyClk(true);
 }
 
-//first come first serve
+void FCSC(){
+    int prevClk = -1;
+    while(1){
+        while(getClk() == prevClk);
+        printf("SCh: Current Time %d\n",getClk());
+        int curtime = getClk();
+        int cnt = 0;
+        while(1){
+            Process p = receiveMessage(PG_SCH_MsgQ);
+            if(p.IsProcess == 0) break;
+            printf("%d\t", p.id);
+            printf("%d\t", p.arrivalTime);
+            printf("%d\t", p.runTime);
+            printf("%d\n", p.priority);
+        }
+    }
+}
+void SJP(){
+    
+}
+void HPF(){
+    
+}
+void SRTN(){
+    
+}
+void RR(){
+    
+}
+
+
+// //first come first serve
 // void fcfs()
 // {
-//     struct processData *head;
+//     struct Process *head;
 //     struct Queue *q = createQueue();
 //     int pid = 0;
 //     //**********************************************
@@ -132,24 +126,23 @@ int main(int argc, char *argv[])
 //                     sprintf(geClk, "%d", getClk());
 //                     char ruTime[500];
 //                     sprintf(ruTime, "%d", head->runTime);
-//                      char algo[500];
+//                     char algo[500];
 //                     sprintf(algo, "%d", choseAlgo);
-//                     execl("process.out", "process", geClk, ruTime,algo,NULL);
+//                     execl("process.out", "process", geClk, ruTime, algo, NULL);
 //                 }
 //                 else //scheduler
 //                 {
-//                            int msgRcv = msgrcv(msg_id, &msg_sch_proc, sizeof(msg_sch_proc.remainingTime), 0, !IPC_NOWAIT);
-//                           if(msgRcv==-1)
-//                           perror("Error in REceiveing from process\n");
-//                           else
-//                           {
-//                               printf("Current process id is %d and it is remaining = %d",head->arrivalTime,msg_sch_proc.remainingTime);
-//                               if(msg_sch_proc.remainingTime==0)
-//                               QueuePop(q);
-//                           } 
+//                     int msgRcv = msgrcv(msg_id, &msg_sch_proc, sizeof(msg_sch_proc.remainingTime), 0, !IPC_NOWAIT);
+//                     if (msgRcv == -1)
+//                         perror("Error in REceiveing from process\n");
+//                     else
+//                     {
+//                         printf("Current process id is %d and it is remaining = %d", head->arrivalTime, msg_sch_proc.remainingTime);
+//                         if (msg_sch_proc.remainingTime == 0)
+//                             QueuePop(q);
+//                     }
 //                 }
 //             }
 //         }
 //     }
-
 // }

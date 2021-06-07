@@ -18,40 +18,44 @@ typedef short bool;
 
 #define SHKEY 300
 
-
-
-struct processData
+//========================================================================
+///////////////////////STRUCTS/////////////////////////////////////////////
+struct Process
 {
     int id ; 
     int arrivalTime ; 
     int runTime; 
     int priority ;
     int status; // 0 reday 1 running
-}; 
-
-
-
-
-struct msgEntryBuff  //to establish the first communication between proccess generator and scheduler
-{
-    long mtype ; 
-    int numProccess ;  // no of proccess you are going to recieve it 
-    int Algonum ;    //  chosen algorithm 
-
-}; 
- 
-struct processesBuff   // hold information about each proccess to send  proccess_generator  __send__>  scheduler
-{
-    long mtype ; 
     int IsProcess;
-    struct processData procs;
 }; 
+typedef struct Process Process;
+
+
+struct Message
+{
+    int mtype;
+    Process process;
+};
+typedef struct Message Message;
+
+struct msgschedulerprocess 
+{
+    long mtype ; 
+    int remainingTime ;  
+}; 
+typedef struct msgchedulerprocess msgschedulerprocess;
+///////////////////////STRUCTS/////////////////////////////////////////////
+//=======================================================================
+
 
 ///==============================
 //don't mess with this variable//
 int *shmaddr; //
 //===============================
 
+//========================================================================
+///////////////////////CLOCK/////////////////////////////////////////////
 int getClk()
 {
     return *shmaddr;
@@ -90,52 +94,68 @@ void destroyClk(bool terminateAll)
         killpg(getpgrp(), SIGINT);
     }
 }
+///////////////////////CLOCK/////////////////////////////////////////////
+//========================================================================
 
-struct msgschedulerprocess 
+
+
+//========================================================================
+///////////////////////MSGQUEUE/////////////////////////////////////////////
+
+int initMsgQueue(char key)
 {
-    long mtype ; 
-    int remainingTime ;  
-}; 
+    key_t msgqKey = ftok("keyfile", key);
+    int msgqId = msgget(msgqKey, 0666 | IPC_CREAT);
 
-//////////////Semaphores
-
-/* arg for semctl system calls. */
-union Semun
-{
-    int val;               /* value for SETVAL */
-    struct semid_ds *buf;  /* buffer for IPC_STAT & IPC_SET */
-    ushort *array;         /* array for GETALL & SETALL */
-    struct seminfo *__buf; /* buffer for IPC_INFO */
-    void *__pad;
-};
-
-void down(int sem)
-{
-    struct sembuf p_op;
-
-    p_op.sem_num = 0;
-    p_op.sem_op = -1;
-    p_op.sem_flg = !IPC_NOWAIT;
-
-    if (semop(sem, &p_op, 1) == -1)
+    if (!~msgqId)
     {
-        perror("Error in down()");
+        perror("Error in creating of message queue");
         exit(-1);
     }
+    return msgqId;
 }
 
-void up(int sem)
+void sendMessage(int msgqId, Process process)
 {
-    struct sembuf v_op;
+    Message message;
+    message.process = process;
+    message.mtype = 1;
+    int send_val = msgsnd(msgqId, &message, sizeof(message.process), !IPC_NOWAIT);
+    if (send_val == -1)
+        perror("Error in sending the process");
+}
 
-    v_op.sem_num = 0;
-    v_op.sem_op = 1;
-    v_op.sem_flg = !IPC_NOWAIT;
+Process receiveMessage(int msgqId)
+{
+    Process process;
+    Message message;
+    int rec_val = msgrcv(msgqId, &message, sizeof(message.process), 0, !IPC_NOWAIT);
+    process = message.process;
+    if (rec_val == -1)
+        perror("Error in receive");
+    
+    return process;
+}
 
-    if (semop(sem, &v_op, 1) == -1)
+///////////////////////MSGQUEUE/////////////////////////////////////////////
+//========================================================================
+
+//========================================================================
+///////////////////////SHARED MEMORRY/////////////////////////////////////////////
+void *initShm(char key, int *id)
+{
+    key_t shmKey = ftok("keyfile", key);
+    int shmId = shmget(shmKey, 4096, 0666 | IPC_CREAT);
+    *id = shmId;
+
+    if (!~shmId)
     {
-        perror("Error in up()");
+        perror("Error in creating of message queue");
         exit(-1);
     }
+
+    void *addr = shmat(shmId, (void *)0, 0);
+    return addr;
 }
-/////////////////////////////////////////////////
+///////////////////////SHARED MEMORRY/////////////////////////////////////////////
+//========================================================================
