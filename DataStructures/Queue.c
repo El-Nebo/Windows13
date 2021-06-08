@@ -1,5 +1,3 @@
-#include <stdlib.h>
-#include <stdio.h>
 #include "../headers.h"
 
 struct Node {
@@ -27,7 +25,11 @@ struct Queue* createQueue()
     q->size = 0;
     return q;
 }
-  
+
+void DestroyQueue(struct Queue* q){
+    free(q);
+}
+
 void QueuePush(struct Queue* q, Process* val)
 {
     struct Node* node = createNode(val);

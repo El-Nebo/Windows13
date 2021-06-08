@@ -1,9 +1,9 @@
 #include "headers.h"
 #include "DataStructures/Queue.h"
+#include "DataStructures/PriorityQueue.h"
 
 
-
-void FCSC();
+void FCFS();
 void SJP();
 void HPF();
 void SRTN();
@@ -154,10 +154,47 @@ void FCFS(){
             }
         }
     }
+    DestroyQueue(q);
 }
+//-------------------------------------------------------------------
+void SJP_receiveComingProcesses(Priority_Queue* q){
+    while(1){
+            Process p = receiveMessage(PG_SCH_MsgQ);
+            if(p.IsProcess == 0) break;
+            Priority_QueuePush(q,&p,p.runTime);
+        }
+}
+
 void SJP(){
-    
+    int prevClk = -1;
+    Priority_Queue* q = create_Priority_Queue();
+    *ProcessRemainingTime = -1;
+    int CPU_idle = 0;
+    Process runningProcess;
+    while(!EXIT){
+        while(getClk() == prevClk);
+        printf("SCh: Current Time %d\n",getClk());
+        int curtime = getClk();
+        SJP_receiveComingProcesses(q);//receive coming processes from process generator
+
+        if (*ProcessRemainingTime == 0){// a process has just started
+            EndProcess(&runningProcess);
+        }
+        if(*ProcessRemainingTime == -1){//No running Process
+            if(Priority_QueueSize(q) == 0){//No waiting Process-- Do nothing and calc CPU utilization
+                CPU_idle++;
+            }
+            else{//There is a waiting process
+                runningProcess = Priority_QueuePeekValue(q);
+                Priority_QueuePop(q);
+                *ProcessRemainingTime = runningProcess.runTime+1;
+                forkProcess(&runningProcess);
+            }
+        }
+    }
+    Destroy_Priority_Queue(q);
 }
+//-------------------------------------------------------------------
 void HPF(){
     
 }

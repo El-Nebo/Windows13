@@ -61,9 +61,9 @@ int main(int argc, char *argv[])
     printf("---Chosen Algo is: %s\n",Algoschoic[chosenAlgo]);
 
     //________________________________TODO: Read other parameters
-    char args[2][2];
-    strcpy(args[0],argv[2]-1);
-    strcpy(args[1],"0");
+    char args[2][3];
+    sprintf(args[0], "%d", chosenAlgo);
+    strcpy(args[1],"0\0");
     //args[1] = "0\n";
     /////////////////////////////////////////////////////////////////////////////////
     // creating clk and scheduler process and start execute them

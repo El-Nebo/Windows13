@@ -1,20 +1,21 @@
+#pragma once
 #include "../headers.h"
 #define MAXSIZE 50
 
-struct Node {
+struct PNode {
     Process value;
     int priority;
     //int index;
-}; typedef struct Node Node;
+}; typedef struct PNode PNode;
 
 struct Priority_Queue {
-    Node* NodeArray[50];
+    PNode* NodeArray[50];
     int size;
 };typedef struct Priority_Queue Priority_Queue;
 
-Node* createPNode(Process* val,int p)
+PNode* createPNode(Process* val,int p)
 {
-    Node* nNode = (Node*)malloc(sizeof(Node));
+    PNode* nNode = (PNode*)malloc(sizeof(PNode));
     nNode->value = *val;
     nNode->priority = p;
     return nNode;
@@ -28,6 +29,8 @@ Priority_Queue* create_Priority_Queue()
 }
 
 void Destroy_Priority_Queue(Priority_Queue* q){
+    for(int i = 0 ; i < q->size ; i++)
+        free(q->NodeArray[i]);
     free(q);
 }
 
@@ -41,8 +44,8 @@ int rightChild(int i){
     return ((2 * i) + 2);
 }
 
-void Swap(Node* a, Node* b){
-    Node tempval = *a;
+void Swap(PNode* a, PNode* b){
+    PNode tempval = *a;
     *a = *b;
     *b = tempval;
 }
@@ -78,7 +81,7 @@ void shiftDown(Priority_Queue* q, int i)
 }
  
 
-void Priority_QueuePush(Priority_Queue* q, void* val, int p)
+void Priority_QueuePush(Priority_Queue* q, Process* val, int p)
 {
     q->NodeArray[q->size] = createPNode(val,p);
     
@@ -97,7 +100,7 @@ void Priority_QueuePop(Priority_Queue* q)
         printf("INVALID POP\n");
         return;
     }
-    void* result = q->NodeArray[0];
+    PNode* result = q->NodeArray[0];
  
     q->size = q->size - 1;
     q->NodeArray[0] = q->NodeArray[q->size];
@@ -106,11 +109,11 @@ void Priority_QueuePop(Priority_Queue* q)
     free(result);
 }
  
-Node Priority_QueuePeek(Priority_Queue* q)
+PNode Priority_QueuePeek(Priority_Queue* q)
 {
     if(q->size <= 0){
         printf("INVALID Peek\n");
-        Node End;
+        PNode End;
         return End;
     }
     return *q->NodeArray[0];
@@ -122,55 +125,4 @@ Process Priority_QueuePeekValue(Priority_Queue* q){
 
 int Priority_QueueSize(Priority_Queue* q){
     return q->size;
-}
-
-struct abbas{
-    int val;
-};
-
-Process p;
-Priority_Queue* q;
-void push(int a,int c){
-    p.id = a;
-    p.priority = c;
-    Priority_QueuePush(q,&p,p.priority);
-    printf("%d %d\n", Priority_QueuePeekValue(q).id,Priority_QueuePeekValue(q).priority);
-
-}
-
-void pop(){
-    Priority_QueuePop(q);
-    printf("%d %d\n", Priority_QueuePeekValue(q).id,Priority_QueuePeekValue(q).priority);
-}
-
-void s(){
-    printf("%d\n",q->size);
-}
-int main(){
-    q = create_Priority_Queue();
-    //printf("%d %d %d\n", Priority_QueuePeekValue(q).id, Priority_QueuePeekValue(q).runTime,Priority_QueuePeekValue(q).priority);
-    
-    push(1,10);
-    push(2,9);
-    push(3,8);
-    push(4,7);
-    push(5,6);
-    push(6,5);
-    push(7,4);
-    push(8,3);
-    push(9,2);
-    push(10,1);
-    pop();
-    pop();
-    pop();
-    pop();
-    pop();
-    pop();
-    pop();
-    pop();
-    pop();
-    //pop();
-    
-    
-    return 0;
 }
