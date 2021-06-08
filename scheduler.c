@@ -15,6 +15,8 @@ void HPF();
 void SRTN();
 void RR();
 
+void MemoryStuff(void *, int ,Process*,int);
+
 FILE *schedularFile;
 
 int choseAlgo = -1;
