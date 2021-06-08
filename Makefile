@@ -16,4 +16,4 @@ run:
 abbas:
 	gcc process.c -o process.out
 	gcc process_generator.c -o abbas
-	./abbas processes.txt 4
+	./abbas processes.txt 3

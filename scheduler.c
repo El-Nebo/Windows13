@@ -15,6 +15,12 @@ void HPF();
 void SRTN();
 void RR();
 
+void FreeProcess(Process*);
+int AllocateMemory(Process*, int*);
+
+void FreeProcess(Process*a){}
+int AllocateMemory(Process*a, int*b){return 1;}
+
 void MemoryStuff(void *, int ,Process*,int);
 
 FILE *schedularFile;
@@ -242,8 +248,84 @@ void SJP(){
 
 }
 //-------------------------------------------------------------------
+void HPF_recieveComingProcess(Priority_Queue *pq)
+{
+    while (1)
+    {
+        Process p = receiveMessage(PG_SCH_MsgQ);
+        if (p.IsProcess == 0)
+            break;
+
+        Priority_QueuePush(pq, &p, p.priority);
+    }
+}
+
 void HPF(){
-    
+  int prevClk = -1;
+    int firstProc = true;
+    Process runningProcess;
+    runningProcess.priority = 100;
+    Priority_Queue *pq = create_Priority_Queue();
+    *ProcessRemainingTime = -1;
+    while (!EXIT)
+    {
+        while (getClk() == prevClk)
+            ;
+            prevClk = getClk();
+        printf("SCh: Current Time %d\n", getClk());
+        int curtime = getClk();
+        HPF_recieveComingProcess(pq);
+        for(int i = 0 ; i<pq->size ; i++){
+            printf("%d %d %d\n", pq->NodeArray[i]->value.id,
+            pq->NodeArray[i]->value.priority,
+            pq->NodeArray[i]->value.remainingTime);
+        }
+        //printf("Abbbbb\n");
+        if (firstProc == true && pq->size > 0)
+        {
+            runningProcess = Priority_QueuePeekValue(pq); // for first process
+            Priority_QueuePop(pq);
+            *ProcessRemainingTime = runningProcess.runTime + 1;
+            forkProcess(&runningProcess);
+
+            firstProc = false;
+            continue;
+        }
+        //printf("\n process remaing time %d \n ", *ProcessRemainingTime);
+
+        if (*ProcessRemainingTime == 0){
+            EndProcess(pq,PRIORITY_QUEUE,&runningProcess,runningProcess.priority);
+        }
+
+        if (pq->size > 0)
+        {
+            Process pS = Priority_QueuePeekValue(pq);
+            Priority_QueuePop(pq);
+            if (pS.priority < runningProcess.priority) // if the next process has a pariority more than the running
+            {
+                printf("\n process remaing time %d \n ", *ProcessRemainingTime);
+                runningProcess.remainingTime = *ProcessRemainingTime;
+                Priority_QueuePush(pq, &runningProcess, runningProcess.priority);
+                stopProcess(&runningProcess);
+            }
+
+            if (*ProcessRemainingTime == -1)
+            {
+                runningProcess = pS;
+                //Priority_QueuePop(pq); // pop pS
+                *ProcessRemainingTime = runningProcess.remainingTime + 1;
+
+                if (runningProcess.remainingTime == runningProcess.runTime) //a new process(first time)
+                    forkProcess(&runningProcess);
+                else
+                    contProcess(&runningProcess);
+            }else{
+                Priority_QueuePush(pq,&pS,pS.priority);
+            }
+        }
+    }
+
+    Destroy_Priority_Queue(pq);
 }
 //-------------------------------------------------------------------
 void SRTN_receiveComingProcesses(Priority_Queue* q){
@@ -275,6 +357,7 @@ void SRTN(){
         
         if(q->size > 0){
             Process Next = Priority_QueuePeekValue(q);
+            Priority_QueuePop(q);
             if(Next.remainingTime < *ProcessRemainingTime){
                 runningProcess.remainingTime = *ProcessRemainingTime;
                 Priority_QueuePush(q,&runningProcess,runningProcess.remainingTime);
@@ -283,14 +366,15 @@ void SRTN(){
 
             if(*ProcessRemainingTime == -1){//either last process has finished or stoped
                 runningProcess = Next;
-                Priority_QueuePop(q);
                 *ProcessRemainingTime = runningProcess.remainingTime+1;
 
                 if(runningProcess.remainingTime == runningProcess.runTime)//a new process(first time)
                     forkProcess(&runningProcess);
                 else 
                     contProcess(&runningProcess);
-            }   
+            }   else{
+                Priority_QueuePush(q,&Next,Next.remainingTime);
+            }
         }
     }
     Destroy_Priority_Queue(q);
