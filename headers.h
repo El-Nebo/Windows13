@@ -31,6 +31,8 @@ struct Process
     int status; // 0 reday 1 running
     int IsProcess;
     int remainingTime;
+    int MemorySize;
+    int MemoryOffset;
 }; 
 typedef struct Process Process;
 
