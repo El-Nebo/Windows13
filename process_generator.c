@@ -64,7 +64,8 @@ int main(int argc, char *argv[])
     //________________________________TODO: Read other parameters
     char args[2][3];
     sprintf(args[0], "%d", chosenAlgo);
-    strcpy(args[1],"0\0");
+    //sprintf(args[1], "%d", chosenAlgo);
+    //strcpy(args[1],"0\0");
     //args[1] = "0\n";
     /////////////////////////////////////////////////////////////////////////////////
     // creating clk and scheduler process and start execute them
@@ -77,7 +78,7 @@ int main(int argc, char *argv[])
     int schedID = fork();
     if (schedID == 0){
         system("gcc scheduler.c -o scheduler.out -lm");
-        execl("scheduler.out", "scheduler", args[0],args[1]);
+        execl("scheduler.out", "scheduler", args[0],argv[3]);
     }
         
 

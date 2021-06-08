@@ -26,7 +26,6 @@ void MemoryStuff(void *, int ,Process*,int);
 FILE *schedularFile;
 
 int choseAlgo = -1;
-int quanta;
 int PG_SCH_MsgQ;
 int *ProcessRemainingTime;
 int Sch_P_Shm_ID;
@@ -38,8 +37,8 @@ int main(int argc, char *argv[])
 {   
     signal(SIGINT,handler);
     choseAlgo = atoi(argv[1]);
-    quanta = atoi(argv[2]);
-    printf("Scheduler: %d %d\n",choseAlgo,quanta);
+    int quantum = atoi(argv[2]);
+    printf("Scheduler: %d %d\n",choseAlgo,quantum);
 
     initClk();
 
@@ -67,7 +66,7 @@ int main(int argc, char *argv[])
         SRTN();
         break;
     case 4:
-        RR();
+        RR(quantum);
         break;
     }
 
@@ -186,6 +185,7 @@ void FCFS(){
     Process runningProcess;
     while(!EXIT){
         while(getClk() == prevClk);
+        prevClk = getClk();
         printf("SCh: Current Time %d\n",getClk());
         int curtime = getClk();
         FCSC_receiveComingProcesses(q);//receive coming processes from process generator
@@ -225,6 +225,7 @@ void SJP(){
     Process runningProcess;
     while(!EXIT){
         while(getClk() == prevClk);
+        prevClk = getClk();
         printf("SCh: Current Time %d\n",getClk());
         int curtime = getClk();
         SJP_receiveComingProcesses(q);//receive coming processes from process generator
@@ -255,8 +256,8 @@ void HPF_recieveComingProcess(Priority_Queue *pq)
         Process p = receiveMessage(PG_SCH_MsgQ);
         if (p.IsProcess == 0)
             break;
-
-        Priority_QueuePush(pq, &p, p.priority);
+        MemoryStuff((void*)pq, PRIORITY_QUEUE, &p,p.priority);
+        //Priority_QueuePush(pq, &p, p.priority);
     }
 }
 
@@ -327,7 +328,9 @@ void HPF(){
 
     Destroy_Priority_Queue(pq);
 }
+
 //-------------------------------------------------------------------
+
 void SRTN_receiveComingProcesses(Priority_Queue* q){
     while(1){
             Process p = receiveMessage(PG_SCH_MsgQ);
@@ -348,7 +351,7 @@ void SRTN(){
     while(!EXIT){
         while(getClk() == prevClk);
         printf("SCh: Current Time %d\n",getClk());
-        int curtime = getClk();
+        prevClk = getClk();
         SRTN_receiveComingProcesses(q);//receive coming processes from process generator
 
         if (*ProcessRemainingTime == 0){// a process has just finished
@@ -379,8 +382,69 @@ void SRTN(){
     }
     Destroy_Priority_Queue(q);
 }
-void RR(){
-    
+
+//-------------------------------------------------------------------
+
+void RR_receiveComingProcesses(Queue* q){
+    while(1){
+            Process p = receiveMessage(PG_SCH_MsgQ);
+            if(p.IsProcess == 0) break;
+            QueuePush(q,&p);
+            //MemoryStuff((void*)q, QUEUE, &p,-1);
+        }
+}
+void RR(int quantum){
+    printf("RR began %d\n", quantum);
+    int prevClk = -1;
+    Queue* q = createQueue();
+    *ProcessRemainingTime = -1;
+    int CPU_idle = 0;
+    Process runningProcess;
+    runningProcess.remainingTime = 0;
+    int Qcnt = 0;
+
+    while(!EXIT){
+        while(getClk() == prevClk);
+        int curtime = getClk();
+        printf("SCh: Current Time %d\n",getClk());
+        RR_receiveComingProcesses(q);//receive coming processes from process generator
+
+        Qcnt--;
+
+        int aa = q->size;
+        for(int i = 0 ; i < aa ; i++){
+            printf("%d %d\n",QueueFront(q).id,QueueFront(q).remainingTime);
+        }
+
+        if(*ProcessRemainingTime == 0){
+            EndProcess(q,QUEUE,&runningProcess,-1);
+            Qcnt = quantum;
+        }
+
+        if(q->size > 0 && (Qcnt == 0 || *ProcessRemainingTime == -1)){
+            Qcnt = quantum;
+
+            if(*ProcessRemainingTime != -1){
+                runningProcess.remainingTime = *ProcessRemainingTime;
+                QueuePush(q,&runningProcess);
+                stopProcess(&runningProcess);
+            }
+
+            runningProcess = QueueFront(q);
+            QueuePop(q);
+
+            *ProcessRemainingTime = runningProcess.remainingTime+1;
+
+            if(runningProcess.remainingTime == runningProcess.runTime)//a new process(first time)
+                    forkProcess(&runningProcess);
+                else 
+                    contProcess(&runningProcess);
+        }
+        if(Qcnt == 0){
+            Qcnt = quantum;
+        }
+    }
+    DestroyQueue(q);
 }
 ///////////////////////Algos Implementation/////////////////////////////////////////////
 //========================================================================
