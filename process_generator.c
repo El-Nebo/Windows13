@@ -42,7 +42,8 @@ int main(int argc, char *argv[])
         Processdata[processCount].runTime= atoi(numtemp[2]);
         Processdata[processCount].priority= atoi(numtemp[3]);
         Processdata[processCount].IsProcess = 1;
-
+        Processdata[processCount].remainingTime = Processdata[processCount].runTime;
+        
         printf("%d\t", Processdata[processCount].id);
         printf("%d\t", Processdata[processCount].arrivalTime);
         printf("%d\t", Processdata[processCount].runTime);

@@ -81,6 +81,7 @@ int forkProcess(Process* p){
 }
 
 void stopProcess(Process* p){
+    //printf("YYYYYYYYY %d\n",p->pid);
     kill(p->pid,SIGSTOP);
     //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
     //&&&&&&&&&&&&&&&&&&&& TODO: Write on file &&&&&&&&&&&&&&&&&&&
@@ -193,13 +194,60 @@ void SJP(){
         }
     }
     Destroy_Priority_Queue(q);
+
 }
 //-------------------------------------------------------------------
 void HPF(){
     
 }
+//-------------------------------------------------------------------
+void SRTN_receiveComingProcesses(Priority_Queue* q){
+    while(1){
+            Process p = receiveMessage(PG_SCH_MsgQ);
+            if(p.IsProcess == 0) break;
+            Priority_QueuePush(q,&p,p.remainingTime);
+        }
+    //printf("TTTTTTTTT  %d\n",q->size);
+}
+
 void SRTN(){
-    
+    int prevClk = -1;
+    Priority_Queue* q = create_Priority_Queue();
+    *ProcessRemainingTime = -1;
+    int CPU_idle = 0;
+    Process runningProcess;
+    runningProcess.remainingTime = 0;
+    while(!EXIT){
+        while(getClk() == prevClk);
+        printf("SCh: Current Time %d\n",getClk());
+        int curtime = getClk();
+        SRTN_receiveComingProcesses(q);//receive coming processes from process generator
+
+        if (*ProcessRemainingTime == 0){// a process has just finished
+            EndProcess(&runningProcess);
+        }
+        
+        if(q->size > 0){
+            Process Next = Priority_QueuePeekValue(q);
+            if(Next.remainingTime < *ProcessRemainingTime){
+                runningProcess.remainingTime = *ProcessRemainingTime;
+                Priority_QueuePush(q,&runningProcess,runningProcess.remainingTime);
+                stopProcess(&runningProcess);
+            }
+
+            if(*ProcessRemainingTime == -1){//either last process has finished or stoped
+                runningProcess = Next;
+                Priority_QueuePop(q);
+                *ProcessRemainingTime = runningProcess.remainingTime+1;
+
+                if(runningProcess.remainingTime == runningProcess.runTime)//a new process(first time)
+                    forkProcess(&runningProcess);
+                else 
+                    contProcess(&runningProcess);
+            }   
+        }
+    }
+    Destroy_Priority_Queue(q);
 }
 void RR(){
     
