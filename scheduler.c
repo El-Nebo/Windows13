@@ -1,6 +1,7 @@
 #include "headers.h"
 #include "DataStructures/Queue.h"
 #include "DataStructures/PriorityQueue.h"
+#include "DataStructures/LinkedList.h"
 
 #define QUEUE 1
 #define PRIORITY_QUEUE 0
@@ -24,7 +25,7 @@ void FreeProcess(Process*);
 int AllocateMemory(Process*, int*);
 
 void FreeProcess(Process*a){}
-int AllocateMemory(Process*a, int*b){return 1;}
+//int AllocateMemory(Process*a, int*b){return 1;}
 
 void MemoryStuff(void *, int ,Process*,int);
 
@@ -32,7 +33,7 @@ void handler(int signum);
 
 FILE *schedularFile;
 FILE *schedulerFinalFile;
-
+//--------------general 
 int choseAlgo = -1;
 int PG_SCH_MsgQ;
 int *ProcessRemainingTime;
@@ -40,13 +41,21 @@ int Sch_P_Shm_ID;
 int EXIT = 0;
 int NUMProcesses;
 int UNCHANGED_NUMProcesses;
-
+//--------------Summary 
 double WTA_SUM = 0;
 double Waiting_SUM =0; 
 int Processes_Count = 0;
 int Execution_SUM = 0;
 int FinishTime;
 Queue* WaitingList;
+//--------------Memory 
+int memPolicy = 0;
+int AllocateMemory(Process *p, int *UpperLimit);
+int firstFit(Process *p, int *UpperLimit);
+int nextFit(Process *p, int *UpperLimit);
+int bestFit(Process *p, int *UpperLimit);
+struct linkedList *memory;
+
 
 int main(int argc, char *argv[])
 {   
@@ -63,6 +72,7 @@ int main(int argc, char *argv[])
     ProcessRemainingTime = (int*)initShm(65,&Sch_P_Shm_ID);
 
     WaitingList = createQueue();
+    memory = creatLinkedList();
 
     schedularFile = fopen("schedular.log", "w");
     schedulerFinalFile = fopen("scheduler.perf","w");
@@ -117,6 +127,7 @@ void PrintLine_SchedulerLog(Process* p,int status, int time){
     p->runTime,
     p->remainingTime,
     (time-p->arrivalTime) - (p->runTime-p->remainingTime));
+    
     if(status == FINISHED){
         fprintf(schedularFile," TA %d WTA %.2f",
         time - p->arrivalTime,
@@ -573,3 +584,74 @@ void RR(int quantum){
 }
 ///////////////////////Algos Implementation/////////////////////////////////////////////
 //========================================================================
+
+//========================================================================
+///////////////////////Memory/////////////////////////////////////////////
+int AllocateMemory(Process *p, int *UpperLimit)
+{
+    if (memPolicy == 0)
+        return firstFit(p, UpperLimit);
+    // else if (memPolicy == 1)
+    //     return nextFit(p, UpperLimit);
+    // else if (memPolicy == 2)
+    //     return bestFit(p, UpperLimit);
+}
+
+int firstFit(struct Process *p, int *UpperLimit)
+{
+    /*if (UpperLimit > 1024)
+        return -1;*/
+    //first process
+    NODE* prev = (NODE*)malloc(sizeof(NODE));
+    if (memory->size == 0)
+    {
+        Insert(memory, p->id, 0, p->MemorySize);
+        p->MemoryOffset = 0;
+        //UpperLimit += p->MemorySize;
+        return 0;
+    }
+    else
+    {
+        NODE *ptr = memory->head;
+        while (ptr != NULL && ((ptr->process_id > 0) || (ptr->process_id <= -1 && ptr->length < p->MemorySize)))
+        {
+            prev = ptr;
+            ptr = ptr->next;
+        }
+        //printf("%d\n",memory->head->process_id);
+        //not found
+        if (ptr == NULL && (1024 - (prev->start + prev->length)) < p->MemorySize)
+        {
+            return -1;
+        }
+        else
+        {
+            //found in tail
+            if (ptr == NULL)
+            {
+                Insert(memory, p->id, prev->start + prev->length, p->MemorySize);
+                p->MemoryOffset = prev->start + prev->length;
+                return p->MemoryOffset;
+            }
+            //found in between allocated in existed node
+            else
+            {
+                //printf("TTTTTTTTTTTTTTTT\n");
+                NODE *temp = getPrev(memory, ptr);
+                int len = ptr->length;
+                int start = ptr->start;
+                int id = ptr->process_id;
+                DeleteNode(memory, ptr->process_id);
+                p->MemoryOffset = ptr->start;
+                if (p->MemorySize == len)
+                    InsertNextTo(memory, temp, p->id, ptr->start, p->MemorySize);
+                else
+                {
+                    InsertNextTo(memory, temp, id, start + p->MemorySize, len - (p->MemorySize));
+                    InsertNextTo(memory, temp, p->id, start, p->MemorySize);
+                }
+                return p->MemoryOffset;
+            }
+        }
+    }
+}

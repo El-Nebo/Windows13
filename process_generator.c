@@ -3,6 +3,7 @@ void clearResources(int sig);
 
 int PG_SCH_MsgQ;
 int EXIT = 0;
+int schedID;
 
 int main(int argc, char *argv[])
 {
@@ -26,7 +27,7 @@ int main(int argc, char *argv[])
     char input[200];
     while(fgets(input,200,Process_Data)){
         if(input[0] == '#') continue;
-        char numtemp[4][10];
+        char numtemp[5][10];
         int k = 0,z=0;
         for(int i = 0 ; i < strlen(input); i++){
             if(input[i] != '\t') numtemp[k][z++] = input[i];
@@ -36,18 +37,20 @@ int main(int argc, char *argv[])
                 k++;
             }
         }
-        numtemp[3][z] = '\0';
+        numtemp[4][z] = '\0';
         Processdata[processCount].id = atoi(numtemp[0]);
         Processdata[processCount].arrivalTime= atoi(numtemp[1]);
         Processdata[processCount].runTime= atoi(numtemp[2]);
         Processdata[processCount].priority= atoi(numtemp[3]);
         Processdata[processCount].IsProcess = 1;
         Processdata[processCount].remainingTime = Processdata[processCount].runTime;
-        
+        Processdata[processCount].MemorySize = atoi(numtemp[4]);
+
         printf("%d\t", Processdata[processCount].id);
         printf("%d\t", Processdata[processCount].arrivalTime);
         printf("%d\t", Processdata[processCount].runTime);
-        printf("%d\n", Processdata[processCount].priority);
+        printf("%d\t", Processdata[processCount].priority);
+        printf("%d\n", Processdata[processCount].MemorySize);
 
         processCount++;
     }
@@ -75,7 +78,7 @@ int main(int argc, char *argv[])
         system("gcc clk.c -o clk.out");
         execl("clk.out","clk",NULL);
     }
-    int schedID = fork();
+    schedID = fork();
     if (schedID == 0){
         system("gcc scheduler.c -o scheduler.out -lm");
         execl("scheduler.out", "scheduler", args[0],argv[3],args[1]);
@@ -119,6 +122,6 @@ void clearResources(int signum)
     destroyClk(true);
     EXIT = 1;
     signal(SIGINT, SIG_DFL);
-    //kill(getppid(),SIGKILL);
+    kill(schedID,SIGKILL);
 }
 
