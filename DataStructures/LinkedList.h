@@ -1,3 +1,5 @@
+#pragma once
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -15,6 +17,51 @@ struct linkedList
     NODE *head;
     int size;
 };
+
+struct nodesorted
+{
+    int start;
+    struct nodesorted *next;
+};
+typedef struct nodesorted SNODE;
+
+
+void InsertOrdered(struct linkedList *f, int start)
+{
+    SNODE *newnode;
+    newnode = (SNODE *)malloc(sizeof(SNODE));
+    newnode->start = start;
+
+    if (f->size == 0)
+    {
+        f->head = newnode;
+        f->head->next = NULL ;
+        f->size++;
+        return;
+    }
+
+    SNODE *head = f->head;
+    SNODE *previous = NULL;
+    SNODE *current = head;
+    while (current != NULL && start > current->start)
+    {
+        previous = current;
+        current = current->next;
+    }
+
+    if (previous == NULL)
+    {
+        f->head = newnode;
+        newnode->next = current;
+    }
+    else
+    {
+        previous->next = newnode;
+        newnode->next = current;
+    }
+    f->size++;
+}
+
 
 struct linkedList *creatLinkedList()
 {
@@ -60,6 +107,18 @@ void Insert(struct linkedList *f,int process_id, int start,int len)
         newnode->next = current;
     }
     f->size++;
+}
+
+void frontInsert(struct linkedList *f,int process_id, int start,int len)
+{
+    NODE *newnode;
+    newnode = (NODE *)malloc(sizeof(NODE));
+    newnode->start = start;
+    newnode->length = len;
+    newnode->process_id=process_id;
+    
+    newnode->next = f->head;
+    f->head = newnode;
 }
 
 int DeleteNode(struct linkedList *f, int process_id)

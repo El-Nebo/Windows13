@@ -2,6 +2,7 @@
 #include "DataStructures/Queue.h"
 #include "DataStructures/PriorityQueue.h"
 #include "DataStructures/LinkedList.h"
+#include "Buddy.h"
 
 #define QUEUE 1
 #define PRIORITY_QUEUE 0
@@ -61,17 +62,19 @@ int nextFit(struct Process *p, int *UpperLimit,int);
 
 int main(int argc, char *argv[])
 {   
-    printf("TTTTTTTTTTJJJJTJTJTJ\n");
     signal(SIGINT,handler);
-    choseAlgo = atoi(argv[1]);
+    choseAlgo = atoi(argv[1])/10;
     int quantum = atoi(argv[2]);
     NUMProcesses = atoi(argv[3]);
-    memPolicy = atoi(argv[4]);
+    memPolicy = atoi(argv[1])%10;
+    //printf("TTTTTTTTTTJJJJTJTJTJ\n");
 
     UNCHANGED_NUMProcesses = NUMProcesses;
     printf("Scheduler: %d %d %d %d\n",choseAlgo,quantum, NUMProcesses,memPolicy);
 
     initClk();
+
+    intialize();
 
     PG_SCH_MsgQ = initMsgQueue(66);
     ProcessRemainingTime = (int*)initShm(65,&Sch_P_Shm_ID);
@@ -84,7 +87,7 @@ int main(int argc, char *argv[])
     MemoryFile = fopen("memory.log","w");
 
     fprintf(schedularFile, "#At time x process y state arr w total z remain y wait k\n");
-    fprintf(schedularFile, "#At time x allocated y bytes for process z from i to j\n");
+    fprintf(MemoryFile, "#At time x allocated y bytes for process z from i to j\n");
 
     switch (choseAlgo)
     {
@@ -152,7 +155,7 @@ void PrintLine_Memory(Process* p,int status, int time){
     char temp[10];
     if(status == STARTED) strcpy(temp,"allocated");
     else if (status == FINISHED) strcpy(temp,"freed");
-    fprintf(schedularFile, "#At time %d %s %d bytes for process %d from %d to %d\n",
+    fprintf(MemoryFile, "#At time %d %s %d bytes for process %d from %d to %d\n",
     time,
     temp,
     p->MemorySize,
@@ -160,6 +163,8 @@ void PrintLine_Memory(Process* p,int status, int time){
     p->MemoryOffset,
     p->MemoryOffset+p->MemorySize
     );
+    fflush(MemoryFile);
+
 }
 //================================================================
 int forkProcess(Process* p){
@@ -174,7 +179,6 @@ int forkProcess(Process* p){
     //&&&&&&&&&&&&&&&&&&&& TODO: Write on file &&&&&&&&&&&&&&&&&&&
     //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
     PrintLine_SchedulerLog(p,STARTED, getClk());
-    PrintLine_Memory(p,STARTED, getClk());
     // fprintf(schedularFile, " At time %d process %d started\n",getClk(),p->id);
     // fflush(schedularFile);
 }
@@ -248,6 +252,7 @@ void MemoryStuff(void * qq, int QType,Process* p,int priorty){
         QueuePush(WaitingList,p);
     }
     else{
+        PrintLine_Memory(p,STARTED, getClk());
         p->MemoryOffset = AllocateMem;
         if(QType == QUEUE){ // qq is normal queue
             QueuePush((Queue*)qq,p);
@@ -590,13 +595,15 @@ void FreeProcess(Process* p){
 }
 int AllocateMemory(Process *p, int *UpperLimit)
 {
-    return 1;
+    //return 1;
     if (memPolicy == 0)
         return firstFit(p, UpperLimit);
     else if (memPolicy == 1)
          return nextFit(p, UpperLimit,0);
     else if (memPolicy == 2)
         return bestFit(p, UpperLimit);
+        else
+        allocateMem(p->MemorySize);
 }
 
 int firstFit(struct Process *p, int *UpperLimit)
@@ -608,7 +615,7 @@ int firstFit(struct Process *p, int *UpperLimit)
     if (memory->size == 0)
     {
         Insert(memory, p->id, 0, p->MemorySize);
-        Insert(memory, -p->id,p->MemorySize,1024-p->MemorySize);
+        Insert(memory, -500,p->MemorySize,1024-p->MemorySize);
         p->MemoryOffset = 0;
         //UpperLimit += p->MemorySize;
         return 0;
@@ -650,8 +657,13 @@ int firstFit(struct Process *p, int *UpperLimit)
                     InsertNextTo(memory, temp, p->id, start, p->MemorySize);
                 else
                 {
-                    InsertNextTo(memory, temp, id, start + p->MemorySize, len - (p->MemorySize));
-                    InsertNextTo(memory, temp, p->id, start, p->MemorySize);
+                    if(temp == NULL){
+                        frontInsert(memory,p->id,start, p->MemorySize);
+                        InsertNextTo(memory, memory->head, -p->id, start + p->MemorySize, len - (p->MemorySize));
+                    }else{
+                        InsertNextTo(memory, temp, id, start + p->MemorySize, len - (p->MemorySize));
+                        InsertNextTo(memory, temp, p->id, start, p->MemorySize);
+                    }
                 }
                 return p->MemoryOffset;
             }
@@ -669,7 +681,7 @@ int nextFit(struct Process *p, int *UpperLimit,int times)
     if (memory->size == 0)
     {
         Insert(memory, p->id, 0, p->MemorySize);
-        Insert(memory, -p->id,p->MemorySize,1024-p->MemorySize);
+        Insert(memory, -500,p->MemorySize,1024-p->MemorySize);
         indicator = memory->head->next;
         p->MemoryOffset = 0;
         //UpperLimit += p->MemorySize;
@@ -717,9 +729,16 @@ int nextFit(struct Process *p, int *UpperLimit,int times)
             }
             else
             {
-                InsertNextTo(memory, temp, id, start + p->MemorySize, len - (p->MemorySize));
-                InsertNextTo(memory, temp, p->id, start, p->MemorySize);
-                indicator = temp->next->next;
+                if(temp == NULL){
+                    frontInsert(memory,p->id,start, p->MemorySize);
+                    InsertNextTo(memory, memory->head, -p->id, start + p->MemorySize, len - (p->MemorySize));
+                    indicator=memory->head->next;
+                }
+                else{
+                    InsertNextTo(memory, temp, id, start + p->MemorySize, len - (p->MemorySize));
+                    InsertNextTo(memory, temp, p->id, start, p->MemorySize);
+                    indicator = temp->next->next;
+                }
             }
             return p->MemoryOffset;
             // }
@@ -737,7 +756,7 @@ int bestFit(struct Process *p, int *UpperLimit)
     if (memory->size == 0)
     {
         Insert(memory, p->id, 0, p->MemorySize);
-        Insert(memory, -p->id, p->MemorySize, 1024 - p->MemorySize);
+        Insert(memory, -500, p->MemorySize, 1024 - p->MemorySize);
         p->MemoryOffset = 0;
         //UpperLimit += p->MemorySize;
         return 0;
@@ -785,8 +804,14 @@ int bestFit(struct Process *p, int *UpperLimit)
                 InsertNextTo(memory, temp, p->id,start, p->MemorySize);
             else
             {
-                InsertNextTo(memory, temp, -p->id, start + p->MemorySize, len - (p->MemorySize));
-                InsertNextTo(memory, temp, p->id, start, p->MemorySize);
+                if(temp == NULL){
+                    frontInsert(memory,p->id,start, p->MemorySize);
+                    InsertNextTo(memory, memory->head, -p->id, start + p->MemorySize, len - (p->MemorySize));
+                }
+                else{
+                    InsertNextTo(memory, temp, -p->id, start + p->MemorySize, len - (p->MemorySize));
+                    InsertNextTo(memory, temp, p->id, start, p->MemorySize);
+                }
             }
             return p->MemoryOffset;
         }

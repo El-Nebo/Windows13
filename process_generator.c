@@ -4,6 +4,8 @@ void clearResources(int sig);
 int PG_SCH_MsgQ;
 int EXIT = 0;
 int schedID;
+int memPolicy;
+
 
 int main(int argc, char *argv[])
 {
@@ -45,6 +47,7 @@ int main(int argc, char *argv[])
         Processdata[processCount].IsProcess = 1;
         Processdata[processCount].remainingTime = Processdata[processCount].runTime;
         Processdata[processCount].MemorySize = atoi(numtemp[4]);
+        Processdata[processCount].MemorySize = atoi(numtemp[4]);
 
         printf("%d\t", Processdata[processCount].id);
         printf("%d\t", Processdata[processCount].arrivalTime);
@@ -64,9 +67,10 @@ int main(int argc, char *argv[])
     int chosenAlgo = atoi(argv[2])-1;
     printf("---Chosen Algo is: %s\n",Algoschoic[chosenAlgo]);
 
+    memPolicy = atoi(argv[4])-1;
     //________________________________TODO: Read other parameters
     char args[2][4];
-    sprintf(args[0], "%d", chosenAlgo);
+    sprintf(args[0], "%d", chosenAlgo*10+memPolicy);
     sprintf(args[1], "%d", processCount);
     //strcpy(args[1],"0\0");
     //args[1] = "0\n";

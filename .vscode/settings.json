@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "random": "c",
-        "headers.h": "c"
+        "headers.h": "c",
+        "linkedlist.h": "c"
     }
 }
