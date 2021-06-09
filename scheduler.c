@@ -9,6 +9,11 @@
 #define BY_PRIORITY 0
 #define BY_RUNTIME 2
 
+#define STARTED 0
+#define STOPED 1
+#define RESUMED 2
+#define FINISHED 3
+
 void FCFS();
 void SJP();
 void HPF();
@@ -23,22 +28,34 @@ int AllocateMemory(Process*a, int*b){return 1;}
 
 void MemoryStuff(void *, int ,Process*,int);
 
+void handler(int signum);
+
 FILE *schedularFile;
+FILE *schedulerFinalFile;
 
 int choseAlgo = -1;
 int PG_SCH_MsgQ;
 int *ProcessRemainingTime;
 int Sch_P_Shm_ID;
-void handler(int signum);
 int EXIT = 0;
+int NUMProcesses;
+int UNCHANGED_NUMProcesses;
 
+double WTA_SUM = 0;
+double Waiting_SUM =0; 
+int Processes_Count = 0;
+int Execution_SUM = 0;
+int FinishTime;
 Queue* WaitingList;
+
 int main(int argc, char *argv[])
 {   
     signal(SIGINT,handler);
     choseAlgo = atoi(argv[1]);
     int quantum = atoi(argv[2]);
-    printf("Scheduler: %d %d\n",choseAlgo,quantum);
+    NUMProcesses = atoi(argv[3]);
+    UNCHANGED_NUMProcesses = NUMProcesses;
+    printf("Scheduler: %d %d %d\n",choseAlgo,quantum, NUMProcesses);
 
     initClk();
 
@@ -48,8 +65,9 @@ int main(int argc, char *argv[])
     WaitingList = createQueue();
 
     schedularFile = fopen("schedular.log", "w");
+    schedulerFinalFile = fopen("scheduler.perf","w");
 
-    fprintf(schedularFile, "#At time x process y (Status)\n");
+    fprintf(schedularFile, "#At time x process y state arr w total z remain y wait k\n");
 
     switch (choseAlgo)
     {
@@ -70,8 +88,15 @@ int main(int argc, char *argv[])
         break;
     }
 
+    fprintf(schedulerFinalFile,"CPU utilization = %.2f%%\n",Execution_SUM*100.0/(FinishTime-1));
+    fprintf(schedulerFinalFile,"Avg WTA = %.2f%%\n",WTA_SUM/Processes_Count);
+    fprintf(schedulerFinalFile,"Avg Waiting = %.2f%%\n",Waiting_SUM/Processes_Count);
+
     fflush(schedularFile);
     fclose(schedularFile);
+
+    fflush(schedulerFinalFile);
+    fclose(schedulerFinalFile);
 
     msgctl(PG_SCH_MsgQ, IPC_RMID, (struct msqid_ds *)0);
     shmctl(Sch_P_Shm_ID, IPC_RMID, NULL);
@@ -82,6 +107,24 @@ void handler(int signum){
 }
 //========================================================================
 ///////////////////////Processes Operations/////////////////////////////////////////////
+void PrintLine_SchedulerLog(Process* p,int status, int time){
+    char msg[4][10] = {"started","stoped","resumed","finished"};
+    fprintf(schedularFile,"At time %d process %d %s arr %d total %d remain %d wait %d",
+    time,
+    p->id,
+    msg[status],
+    p->arrivalTime,
+    p->runTime,
+    p->remainingTime,
+    (time-p->arrivalTime) - (p->runTime-p->remainingTime));
+    if(status == FINISHED){
+        fprintf(schedularFile," TA %d WTA %.2f",
+        time - p->arrivalTime,
+        (time - p->arrivalTime)*1.0/p->runTime);
+    }
+    fprintf(schedularFile,"\n");
+    fflush(schedularFile);
+}
 int forkProcess(Process* p){
     p->pid = fork();
     if(p->pid == -1)
@@ -93,8 +136,9 @@ int forkProcess(Process* p){
     //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
     //&&&&&&&&&&&&&&&&&&&& TODO: Write on file &&&&&&&&&&&&&&&&&&&
     //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-    fprintf(schedularFile, " At time %d process %d started\n",getClk(),p->id);
-    fflush(schedularFile);
+    PrintLine_SchedulerLog(p,STARTED, getClk());
+    // fprintf(schedularFile, " At time %d process %d started\n",getClk(),p->id);
+    // fflush(schedularFile);
 }
 
 void stopProcess(Process* p){
@@ -103,8 +147,9 @@ void stopProcess(Process* p){
     //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
     //&&&&&&&&&&&&&&&&&&&& TODO: Write on file &&&&&&&&&&&&&&&&&&&
     //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-    fprintf(schedularFile, " At time %d process %d stoped\n",getClk(),p->id);
-    fflush(schedularFile);
+    PrintLine_SchedulerLog(p,STOPED, getClk());
+    // fprintf(schedularFile, " At time %d process %d stoped\n",getClk(),p->id);
+    // fflush(schedularFile);
 
     *ProcessRemainingTime = -1;
 }
@@ -114,20 +159,30 @@ void contProcess(Process* p){
     //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
     //&&&&&&&&&&&&&&&&&&&& TODO: Write on file &&&&&&&&&&&&&&&&&&&
     //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-    fprintf(schedularFile, " At time %d process %d resumed\n",getClk(),p->id);
-    fflush(schedularFile);
+    PrintLine_SchedulerLog(p,RESUMED, getClk());
+    // fprintf(schedularFile, " At time %d process %d resumed\n",getClk(),p->id);
+    // fflush(schedularFile);
 }
 
 void EndProcess(void* qq, int QType, Process* p, int priorty){
+    p->remainingTime = 0;
     //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
     //&&&&&&&&&&&&&&&& TODO: Calc WT w el7agat dh &&&&&&&&&&&&&&&&
     //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 
+    WTA_SUM += (getClk() - p->arrivalTime)*1.0/p->runTime;
+    Waiting_SUM += (getClk()-p->arrivalTime) - (p->runTime-p->remainingTime);
+    Processes_Count++;
+    Execution_SUM += p->runTime;
+    FinishTime = getClk();
+
+    if(Processes_Count == UNCHANGED_NUMProcesses) EXIT = 1;
     //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
     //&&&&&&&&&&&&&&&&&&&& TODO: Write on file &&&&&&&&&&&&&&&&&&&
     //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-    fprintf(schedularFile, " At time %d process %d finished\n",getClk(),p->id);
-    fflush(schedularFile);
+    PrintLine_SchedulerLog(p,FINISHED, getClk());
+    // fprintf(schedularFile, " At time %d process %d finished\n",getClk(),p->id);
+    // fflush(schedularFile);
 
 
     //===============Memeory Stuff=====================
@@ -169,14 +224,29 @@ void MemoryStuff(void * qq, int QType,Process* p,int priorty){
 
 //========================================================================
 ///////////////////////Algos Implementation/////////////////////////////////////////////
-void FCSC_receiveComingProcesses(Queue* q){
-    while(1){
+void receiveComingProcesses(void* q,int QType, int prioritytype){
+    while(NUMProcesses > 0){
             Process p = receiveMessage(PG_SCH_MsgQ);
             if(p.IsProcess == 0) break;
+            NUMProcesses--;
             //QueuePush(q,&p);
-            MemoryStuff((void*)q, QUEUE, &p,-1);
+            int z;
+            if(prioritytype == BY_RUNTIME) z = p.runTime;
+            else if (prioritytype == BY_PRIORITY) z = p.priority;
+            else if (prioritytype == BY_REMAININGTIME) z = p.remainingTime;
+            MemoryStuff((void*)q, QType, &p,prioritytype);
         }
 }
+
+// void FCSC_receiveComingProcesses(Queue* q){
+//     while(NUMProcesses > 0){
+//             Process p = receiveMessage(PG_SCH_MsgQ);
+//             if(p.IsProcess == 0) break;
+//             //QueuePush(q,&p);
+//             MemoryStuff((void*)q, QUEUE, &p,-1);
+//         }
+// }
+
 void FCFS(){
     int prevClk = -1;
     Queue* q = createQueue();
@@ -188,7 +258,7 @@ void FCFS(){
         prevClk = getClk();
         printf("SCh: Current Time %d\n",getClk());
         int curtime = getClk();
-        FCSC_receiveComingProcesses(q);//receive coming processes from process generator
+        if(NUMProcesses>0)  receiveComingProcesses(q,QUEUE,-1);//receive coming processes from process generator
 
         if (*ProcessRemainingTime == 0){// a process has just started
             EndProcess(q,QUEUE,&runningProcess,-1);
@@ -208,14 +278,14 @@ void FCFS(){
     DestroyQueue(q);
 }
 //-------------------------------------------------------------------
-void SJP_receiveComingProcesses(Priority_Queue* q){
-    while(1){
-            Process p = receiveMessage(PG_SCH_MsgQ);
-            if(p.IsProcess == 0) break;
-            //Priority_QueuePush(q,&p,p.runTime);
-            MemoryStuff((void*)q, PRIORITY_QUEUE, &p,p.runTime);
-        }
-}
+// void SJP_receiveComingProcesses(Priority_Queue* q){
+//     while(NUMProcesses > 0){
+//             Process p = receiveMessage(PG_SCH_MsgQ);
+//             if(p.IsProcess == 0) break;
+//             //Priority_QueuePush(q,&p,p.runTime);
+//             MemoryStuff((void*)q, PRIORITY_QUEUE, &p,p.runTime);
+//         }
+// }
 
 void SJP(){
     int prevClk = -1;
@@ -228,7 +298,7 @@ void SJP(){
         prevClk = getClk();
         printf("SCh: Current Time %d\n",getClk());
         int curtime = getClk();
-        SJP_receiveComingProcesses(q);//receive coming processes from process generator
+        if(NUMProcesses>0)  receiveComingProcesses(q,PRIORITY_QUEUE,BY_RUNTIME);//receive coming processes from process generator
 
         if (*ProcessRemainingTime == 0){// a process has just started
             EndProcess(q,QUEUE,&runningProcess,BY_RUNTIME);
@@ -249,17 +319,17 @@ void SJP(){
 
 }
 //-------------------------------------------------------------------
-void HPF_recieveComingProcess(Priority_Queue *pq)
-{
-    while (1)
-    {
-        Process p = receiveMessage(PG_SCH_MsgQ);
-        if (p.IsProcess == 0)
-            break;
-        MemoryStuff((void*)pq, PRIORITY_QUEUE, &p,p.priority);
-        //Priority_QueuePush(pq, &p, p.priority);
-    }
-}
+// void HPF_recieveComingProcess(Priority_Queue *pq)
+// {
+//     while (NUMProcesses > 0)
+//     {
+//         Process p = receiveMessage(PG_SCH_MsgQ);
+//         if (p.IsProcess == 0)
+//             break;
+//         MemoryStuff((void*)pq, PRIORITY_QUEUE, &p,p.priority);
+//         //Priority_QueuePush(pq, &p, p.priority);
+//     }
+// }
 
 void HPF(){
   int prevClk = -1;
@@ -275,12 +345,12 @@ void HPF(){
             prevClk = getClk();
         printf("SCh: Current Time %d\n", getClk());
         int curtime = getClk();
-        HPF_recieveComingProcess(pq);
-        for(int i = 0 ; i<pq->size ; i++){
-            printf("%d %d %d\n", pq->NodeArray[i]->value.id,
-            pq->NodeArray[i]->value.priority,
-            pq->NodeArray[i]->value.remainingTime);
-        }
+        if(NUMProcesses>0)  receiveComingProcesses(pq,PRIORITY_QUEUE,BY_PRIORITY);
+        // for(int i = 0 ; i<pq->size ; i++){
+        //     printf("%d %d %d\n", pq->NodeArray[i]->value.id,
+        //     pq->NodeArray[i]->value.priority,
+        //     pq->NodeArray[i]->value.remainingTime);
+        // }
         //printf("Abbbbb\n");
         if (firstProc == true && pq->size > 0)
         {
@@ -304,7 +374,7 @@ void HPF(){
             Priority_QueuePop(pq);
             if (pS.priority < runningProcess.priority) // if the next process has a pariority more than the running
             {
-                printf("\n process remaing time %d \n ", *ProcessRemainingTime);
+                //printf("\n process remaing time %d \n ", *ProcessRemainingTime);
                 runningProcess.remainingTime = *ProcessRemainingTime;
                 Priority_QueuePush(pq, &runningProcess, runningProcess.priority);
                 stopProcess(&runningProcess);
@@ -331,15 +401,15 @@ void HPF(){
 
 //-------------------------------------------------------------------
 
-void SRTN_receiveComingProcesses(Priority_Queue* q){
-    while(1){
-            Process p = receiveMessage(PG_SCH_MsgQ);
-            if(p.IsProcess == 0) break;
-            //Priority_QueuePush(q,&p,p.remainingTime);
-            MemoryStuff((void*)q, PRIORITY_QUEUE, &p,p.remainingTime);
-        }
-    //printf("TTTTTTTTT  %d\n",q->size);
-}
+// void SRTN_receiveComingProcesses(Priority_Queue* q){
+//     while(1){
+//             Process p = receiveMessage(PG_SCH_MsgQ);
+//             if(p.IsProcess == 0) break;
+//             //Priority_QueuePush(q,&p,p.remainingTime);
+//             MemoryStuff((void*)q, PRIORITY_QUEUE, &p,p.remainingTime);
+//         }
+//     //printf("TTTTTTTTT  %d\n",q->size);
+// }
 
 void SRTN(){
     int prevClk = -1;
@@ -350,10 +420,25 @@ void SRTN(){
     runningProcess.remainingTime = 0;
     while(!EXIT){
         while(getClk() == prevClk);
-        printf("SCh: Current Time %d\n",getClk());
         prevClk = getClk();
-        SRTN_receiveComingProcesses(q);//receive coming processes from process generator
-
+        printf("SCh: Current Time %d\n",getClk());
+        if(getClk() == 68){
+            for(int i = 0 ; i<q->size ; i++){
+                printf("%d %d %d\n", q->NodeArray[i]->value.id,
+                q->NodeArray[i]->value.priority,
+                q->NodeArray[i]->value.remainingTime);
+            }
+        }
+        if(NUMProcesses>0)  receiveComingProcesses(q,PRIORITY_QUEUE,BY_REMAININGTIME);//receive coming processes from process generator
+        if(getClk() == 68){
+            for(int i = 0 ; i<q->size ; i++){
+                printf("%d %d %d\n", q->NodeArray[i]->value.id,
+                q->NodeArray[i]->value.priority,
+                q->NodeArray[i]->value.remainingTime);
+            }
+        }
+        
+        //printf("Abbbbb\n");
         if (*ProcessRemainingTime == 0){// a process has just finished
             EndProcess(q,PRIORITY_QUEUE,&runningProcess,BY_REMAININGTIME);
         }
@@ -381,18 +466,57 @@ void SRTN(){
         }
     }
     Destroy_Priority_Queue(q);
+   /*
+   int prevClk = -1;
+    Priority_Queue* q = create_Priority_Queue();
+    *ProcessRemainingTime = -1;
+    int CPU_idle = 0;
+    Process runningProcess;
+    runningProcess.remainingTime = 0;
+    while(!EXIT){
+        while(getClk() == prevClk);
+        printf("SCh: Current Time %d\n",getClk());
+        int curtime = getClk();
+        SRTN_receiveComingProcesses(q);//receive coming processes from process generator
+
+        if (*ProcessRemainingTime == 0){// a process has just finished
+            EndProcess(q,PRIORITY_QUEUE,&runningProcess,BY_REMAININGTIME);
+        }
+        
+        if(q->size > 0){
+            Process Next = Priority_QueuePeekValue(q);
+            if(Next.remainingTime < *ProcessRemainingTime){
+                runningProcess.remainingTime = *ProcessRemainingTime;
+                Priority_QueuePush(q,&runningProcess,runningProcess.remainingTime);
+                stopProcess(&runningProcess);
+            }
+
+            if(*ProcessRemainingTime == -1){//either last process has finished or stoped
+                runningProcess = Next;
+                Priority_QueuePop(q);
+                *ProcessRemainingTime = runningProcess.remainingTime+1;
+
+                if(runningProcess.remainingTime == runningProcess.runTime)//a new process(first time)
+                    forkProcess(&runningProcess);
+                else 
+                    contProcess(&runningProcess);
+            }   
+        }
+    }
+    Destroy_Priority_Queue(q);
+    */
 }
 
 //-------------------------------------------------------------------
 
-void RR_receiveComingProcesses(Queue* q){
-    while(1){
-            Process p = receiveMessage(PG_SCH_MsgQ);
-            if(p.IsProcess == 0) break;
-            QueuePush(q,&p);
-            //MemoryStuff((void*)q, QUEUE, &p,-1);
-        }
-}
+// void RR_receiveComingProcesses(Queue* q){
+//     while(1){
+//             Process p = receiveMessage(PG_SCH_MsgQ);
+//             if(p.IsProcess == 0) break;
+//             //QueuePush(q,&p);
+//             MemoryStuff((void*)q, QUEUE, &p,-1);
+//         }
+// }
 void RR(int quantum){
     printf("RR began %d\n", quantum);
     int prevClk = -1;
@@ -405,16 +529,17 @@ void RR(int quantum){
 
     while(!EXIT){
         while(getClk() == prevClk);
+        prevClk = getClk();
         int curtime = getClk();
         printf("SCh: Current Time %d\n",getClk());
-        RR_receiveComingProcesses(q);//receive coming processes from process generator
+        if(NUMProcesses>0)  receiveComingProcesses(q,QUEUE,-1);//receive coming processes from process generator
 
         Qcnt--;
 
-        int aa = q->size;
-        for(int i = 0 ; i < aa ; i++){
-            printf("%d %d\n",QueueFront(q).id,QueueFront(q).remainingTime);
-        }
+        // int aa = q->size;
+        // for(int i = 0 ; i < aa ; i++){
+        //     printf("%d %d\n",QueueFront(q).id,QueueFront(q).remainingTime);
+        // }
 
         if(*ProcessRemainingTime == 0){
             EndProcess(q,QUEUE,&runningProcess,-1);

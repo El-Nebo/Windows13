@@ -62,9 +62,9 @@ int main(int argc, char *argv[])
     printf("---Chosen Algo is: %s\n",Algoschoic[chosenAlgo]);
 
     //________________________________TODO: Read other parameters
-    char args[2][3];
+    char args[2][4];
     sprintf(args[0], "%d", chosenAlgo);
-    //sprintf(args[1], "%d", chosenAlgo);
+    sprintf(args[1], "%d", processCount);
     //strcpy(args[1],"0\0");
     //args[1] = "0\n";
     /////////////////////////////////////////////////////////////////////////////////
@@ -78,7 +78,7 @@ int main(int argc, char *argv[])
     int schedID = fork();
     if (schedID == 0){
         system("gcc scheduler.c -o scheduler.out -lm");
-        execl("scheduler.out", "scheduler", args[0],argv[3]);
+        execl("scheduler.out", "scheduler", args[0],argv[3],args[1]);
     }
         
 
@@ -90,13 +90,13 @@ int main(int argc, char *argv[])
     printf("clock: %d\n", getClk());
     int Count = 0;
     int prevClk = -1;
-    while (!EXIT)
+    while (!EXIT && Count < processCount)
     {
         while(getClk() == prevClk){}
         int currentTime = getClk();
         //printf("Process Generator: Current Time is %d\n", currentTime);
 
-        while(Processdata[Count].arrivalTime == currentTime){
+        while(Count < processCount && Processdata[Count].arrivalTime == currentTime){
             sendMessage(PG_SCH_MsgQ,Processdata[Count]);
             Count++;
         }
@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
 
         prevClk = currentTime;
     }
-
+    while(!EXIT);
     destroyClk(true);
 }
 
