@@ -587,6 +587,9 @@ void RR(int quantum){
 
 //========================================================================
 ///////////////////////Memory/////////////////////////////////////////////
+void FreeProcess(Process* p){
+    VirtualDelete(memory,p);
+}
 int AllocateMemory(Process *p, int *UpperLimit)
 {
     if (memPolicy == 0)

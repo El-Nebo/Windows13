@@ -97,7 +97,50 @@ int DeleteNode(struct linkedList *f, int process_id)
     else
         return 0;
 }
-
+void VirtualDelete(struct linkedList *f, int process_id){
+    if (f->size == 0)
+    {
+        return 0;
+    }
+    NODE *head = f->head;
+    NODE *previous = NULL;
+    NODE *current = head;
+    while (current != NULL && current->process_id !=process_id)
+    {
+        previous = current;
+        current = current->next;
+    }
+    if(current == head){
+        if(current->next && current->next->process_id <= -1){
+            f->head = current->next;
+            f->head->start = 0;
+            free(current);
+        }
+        current->process_id = -current->process_id;
+    }
+    else{
+        if(previous->process_id <= -1){
+            previous->next = current->next;
+            previous->length += current->length;
+            free(current);
+            current = previous;
+        }
+        if(current->next != NULL && current->next->process_id <= -1){
+            NODE* temp = current->next;
+            current->next = temp->next;
+            current->length += temp->length;
+            free(temp);
+        }
+        if(previous->process_id >= 0 && (current->next == NULL||current->next->process_id >= 0)){
+            current->process_id = -current->process_id;
+        }
+    }
+    if (f->size == 0)
+    {   
+        f->head = NULL;
+    }
+    return 1;
+}
 void Traverse(struct linkedList *f)
 {
     NODE *head = f->head;
