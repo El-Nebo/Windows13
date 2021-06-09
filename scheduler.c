@@ -155,7 +155,7 @@ void PrintLine_Memory(Process* p,int status, int time){
     char temp[10];
     if(status == STARTED) strcpy(temp,"allocated");
     else if (status == FINISHED) strcpy(temp,"freed");
-    fprintf(MemoryFile, "#At time %d %s %d bytes for process %d from %d to %d\n",
+    fprintf(MemoryFile, "At time %d %s %d bytes for process %d from %d to %d\n",
     time,
     temp,
     p->MemorySize,
