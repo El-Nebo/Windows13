@@ -4,6 +4,7 @@ void clearResources(int sig);
 int PG_SCH_MsgQ;
 int EXIT = 0;
 int schedID;
+int memPolicy;
 
 int main(int argc, char *argv[])
 {
@@ -63,11 +64,21 @@ int main(int argc, char *argv[])
     };
     int chosenAlgo = atoi(argv[2])-1;
     printf("---Chosen Algo is: %s\n",Algoschoic[chosenAlgo]);
+    //------------------------------------------
 
+    memPolicy = atoi(argv[4])-1;
+    char MEMPOLICIES[4][50] = {
+        "First Fit",
+        "Next Fit",
+        "Best Fit",
+        "Buddy :("
+    };
+    printf("---Chosen memory policy is: %s\n",MEMPOLICIES[memPolicy]);
     //________________________________TODO: Read other parameters
-    char args[2][4];
+    char args[3][4];
     sprintf(args[0], "%d", chosenAlgo);
     sprintf(args[1], "%d", processCount);
+    sprintf(args[2], "%d", memPolicy);
     //strcpy(args[1],"0\0");
     //args[1] = "0\n";
     /////////////////////////////////////////////////////////////////////////////////
@@ -81,7 +92,8 @@ int main(int argc, char *argv[])
     schedID = fork();
     if (schedID == 0){
         system("gcc scheduler.c -o scheduler.out -lm");
-        execl("scheduler.out", "scheduler", args[0],argv[3],args[1]);
+        execl("scheduler.out", "scheduler", args[0],argv[3],args[1],args[2]);
+        //printf("Abbas\n");
     }
         
 
@@ -122,5 +134,6 @@ void clearResources(int signum)
     destroyClk(true);
     EXIT = 1;
     signal(SIGINT, SIG_DFL);
-    kill(schedID,SIGKILL);
+    kill(schedID,SIGINT);
 }
+

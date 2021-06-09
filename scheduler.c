@@ -24,7 +24,7 @@ void RR();
 void FreeProcess(Process*);
 int AllocateMemory(Process*, int*);
 
-void FreeProcess(Process*a){}
+//void FreeProcess(Process*a){}
 //int AllocateMemory(Process*a, int*b){return 1;}
 
 void MemoryStuff(void *, int ,Process*,int);
@@ -33,6 +33,7 @@ void handler(int signum);
 
 FILE *schedularFile;
 FILE *schedulerFinalFile;
+FILE *MemoryFile;
 //--------------general 
 int choseAlgo = -1;
 int PG_SCH_MsgQ;
@@ -52,19 +53,23 @@ Queue* WaitingList;
 int memPolicy = 0;
 int AllocateMemory(Process *p, int *UpperLimit);
 int firstFit(Process *p, int *UpperLimit);
-int nextFit(Process *p, int *UpperLimit);
+NODE* indicator;
 int bestFit(Process *p, int *UpperLimit);
 struct linkedList *memory;
-
+int covertMemoryToCircularLinkedlisty(struct Process *p, int *UpperLimit);
+int nextFit(struct Process *p, int *UpperLimit,int);
 
 int main(int argc, char *argv[])
 {   
+    printf("TTTTTTTTTTJJJJTJTJTJ\n");
     signal(SIGINT,handler);
     choseAlgo = atoi(argv[1]);
     int quantum = atoi(argv[2]);
     NUMProcesses = atoi(argv[3]);
+    memPolicy = atoi(argv[4]);
+
     UNCHANGED_NUMProcesses = NUMProcesses;
-    printf("Scheduler: %d %d %d\n",choseAlgo,quantum, NUMProcesses);
+    printf("Scheduler: %d %d %d %d\n",choseAlgo,quantum, NUMProcesses,memPolicy);
 
     initClk();
 
@@ -76,8 +81,10 @@ int main(int argc, char *argv[])
 
     schedularFile = fopen("schedular.log", "w");
     schedulerFinalFile = fopen("scheduler.perf","w");
+    MemoryFile = fopen("memory.log","w");
 
     fprintf(schedularFile, "#At time x process y state arr w total z remain y wait k\n");
+    fprintf(schedularFile, "#At time x allocated y bytes for process z from i to j\n");
 
     switch (choseAlgo)
     {
@@ -104,16 +111,20 @@ int main(int argc, char *argv[])
 
     fflush(schedularFile);
     fclose(schedularFile);
-
+    
     fflush(schedulerFinalFile);
     fclose(schedulerFinalFile);
+
+    fflush(MemoryFile);
+    fclose(MemoryFile);
 
     msgctl(PG_SCH_MsgQ, IPC_RMID, (struct msqid_ds *)0);
     shmctl(Sch_P_Shm_ID, IPC_RMID, NULL);
     destroyClk(true);
 }
 void handler(int signum){
-    EXIT = 1;
+    if(signum == SIGINT)
+        EXIT = 1;
 }
 //========================================================================
 ///////////////////////Processes Operations/////////////////////////////////////////////
@@ -136,6 +147,21 @@ void PrintLine_SchedulerLog(Process* p,int status, int time){
     fprintf(schedularFile,"\n");
     fflush(schedularFile);
 }
+
+void PrintLine_Memory(Process* p,int status, int time){
+    char temp[10];
+    if(status == STARTED) strcpy(temp,"allocated");
+    else if (status == FINISHED) strcpy(temp,"freed");
+    fprintf(schedularFile, "#At time %d %s %d bytes for process %d from %d to %d\n",
+    time,
+    temp,
+    p->MemorySize,
+    p->id,
+    p->MemoryOffset,
+    p->MemoryOffset+p->MemorySize
+    );
+}
+//================================================================
 int forkProcess(Process* p){
     p->pid = fork();
     if(p->pid == -1)
@@ -148,6 +174,7 @@ int forkProcess(Process* p){
     //&&&&&&&&&&&&&&&&&&&& TODO: Write on file &&&&&&&&&&&&&&&&&&&
     //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
     PrintLine_SchedulerLog(p,STARTED, getClk());
+    PrintLine_Memory(p,STARTED, getClk());
     // fprintf(schedularFile, " At time %d process %d started\n",getClk(),p->id);
     // fflush(schedularFile);
 }
@@ -192,6 +219,7 @@ void EndProcess(void* qq, int QType, Process* p, int priorty){
     //&&&&&&&&&&&&&&&&&&&& TODO: Write on file &&&&&&&&&&&&&&&&&&&
     //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
     PrintLine_SchedulerLog(p,FINISHED, getClk());
+    PrintLine_Memory(p,FINISHED, getClk());
     // fprintf(schedularFile, " At time %d process %d finished\n",getClk(),p->id);
     // fflush(schedularFile);
 
@@ -477,45 +505,6 @@ void SRTN(){
         }
     }
     Destroy_Priority_Queue(q);
-   /*
-   int prevClk = -1;
-    Priority_Queue* q = create_Priority_Queue();
-    *ProcessRemainingTime = -1;
-    int CPU_idle = 0;
-    Process runningProcess;
-    runningProcess.remainingTime = 0;
-    while(!EXIT){
-        while(getClk() == prevClk);
-        printf("SCh: Current Time %d\n",getClk());
-        int curtime = getClk();
-        SRTN_receiveComingProcesses(q);//receive coming processes from process generator
-
-        if (*ProcessRemainingTime == 0){// a process has just finished
-            EndProcess(q,PRIORITY_QUEUE,&runningProcess,BY_REMAININGTIME);
-        }
-        
-        if(q->size > 0){
-            Process Next = Priority_QueuePeekValue(q);
-            if(Next.remainingTime < *ProcessRemainingTime){
-                runningProcess.remainingTime = *ProcessRemainingTime;
-                Priority_QueuePush(q,&runningProcess,runningProcess.remainingTime);
-                stopProcess(&runningProcess);
-            }
-
-            if(*ProcessRemainingTime == -1){//either last process has finished or stoped
-                runningProcess = Next;
-                Priority_QueuePop(q);
-                *ProcessRemainingTime = runningProcess.remainingTime+1;
-
-                if(runningProcess.remainingTime == runningProcess.runTime)//a new process(first time)
-                    forkProcess(&runningProcess);
-                else 
-                    contProcess(&runningProcess);
-            }   
-        }
-    }
-    Destroy_Priority_Queue(q);
-    */
 }
 
 //-------------------------------------------------------------------
@@ -585,19 +574,29 @@ void RR(int quantum){
 ///////////////////////Algos Implementation/////////////////////////////////////////////
 //========================================================================
 
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 //========================================================================
 ///////////////////////Memory/////////////////////////////////////////////
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+
 void FreeProcess(Process* p){
-    VirtualDelete(memory,p);
+    VirtualDelete(memory,p->id);
 }
 int AllocateMemory(Process *p, int *UpperLimit)
 {
+    return 1;
     if (memPolicy == 0)
         return firstFit(p, UpperLimit);
-    // else if (memPolicy == 1)
-    //     return nextFit(p, UpperLimit);
-    // else if (memPolicy == 2)
-    //     return bestFit(p, UpperLimit);
+    else if (memPolicy == 1)
+         return nextFit(p, UpperLimit,0);
+    else if (memPolicy == 2)
+        return bestFit(p, UpperLimit);
 }
 
 int firstFit(struct Process *p, int *UpperLimit)
@@ -609,6 +608,7 @@ int firstFit(struct Process *p, int *UpperLimit)
     if (memory->size == 0)
     {
         Insert(memory, p->id, 0, p->MemorySize);
+        Insert(memory, -p->id,p->MemorySize,1024-p->MemorySize);
         p->MemoryOffset = 0;
         //UpperLimit += p->MemorySize;
         return 0;
@@ -636,7 +636,7 @@ int firstFit(struct Process *p, int *UpperLimit)
                 p->MemoryOffset = prev->start + prev->length;
                 return p->MemoryOffset;
             }
-            //found in between allocated in existed node
+                //found in between allocated in existed node
             else
             {
                 //printf("TTTTTTTTTTTTTTTT\n");
@@ -645,9 +645,9 @@ int firstFit(struct Process *p, int *UpperLimit)
                 int start = ptr->start;
                 int id = ptr->process_id;
                 DeleteNode(memory, ptr->process_id);
-                p->MemoryOffset = ptr->start;
+                p->MemoryOffset = start;
                 if (p->MemorySize == len)
-                    InsertNextTo(memory, temp, p->id, ptr->start, p->MemorySize);
+                    InsertNextTo(memory, temp, p->id, start, p->MemorySize);
                 else
                 {
                     InsertNextTo(memory, temp, id, start + p->MemorySize, len - (p->MemorySize));
@@ -655,6 +655,140 @@ int firstFit(struct Process *p, int *UpperLimit)
                 }
                 return p->MemoryOffset;
             }
+        }
+    }
+}
+//******************
+int nextFit(struct Process *p, int *UpperLimit,int times)
+{
+    /*if (UpperLimit > 1024)
+        return -1;*/
+    //first process
+    //if(firstFit(p,UpperLimit) == -1) return -1;
+    NODE* prev = (NODE*)malloc(sizeof(NODE));
+    if (memory->size == 0)
+    {
+        Insert(memory, p->id, 0, p->MemorySize);
+        Insert(memory, -p->id,p->MemorySize,1024-p->MemorySize);
+        indicator = memory->head->next;
+        p->MemoryOffset = 0;
+        //UpperLimit += p->MemorySize;
+        return 0;
+    }
+    else
+    {
+        NODE *ptr = indicator;
+        while (ptr != NULL && ((ptr->process_id > 0) || (ptr->process_id <= -1 && ptr->length < p->MemorySize)))
+        {
+            prev = ptr;
+            ptr = ptr->next;
+        }
+        //printf("%d\n",memory->head->process_id);
+        //not found
+        if (ptr == NULL && (1024 - (prev->start + prev->length)) < p->MemorySize)
+        {
+            indicator = memory->head;
+            if(times == 1) return -1;
+            return nextFit(p,UpperLimit,1);
+        }
+        else
+        {
+            //found in tail
+            // if (ptr == NULL)
+            // {
+            //     Insert(memory, p->id, prev->start + prev->length, p->MemorySize);
+            //     indicator = prev->next->next;
+            //     p->MemoryOffset = prev->start + prev->length;
+            //     return p->MemoryOffset;
+            // }
+            //found in between allocated in existed node
+            // {
+            //printf("TTTTTTTTTTTTTTTT\n");
+            NODE *temp = getPrev(memory, ptr);
+            int len = ptr->length;
+            int start = ptr->start;
+            int id = ptr->process_id;
+            DeleteNode(memory, ptr->process_id);
+            p->MemoryOffset = start;
+            if (p->MemorySize == len){
+                InsertNextTo(memory, temp, p->id, start, p->MemorySize);
+                indicator = temp->next;
+                if(indicator == NULL) indicator = memory->head;
+            }
+            else
+            {
+                InsertNextTo(memory, temp, id, start + p->MemorySize, len - (p->MemorySize));
+                InsertNextTo(memory, temp, p->id, start, p->MemorySize);
+                indicator = temp->next->next;
+            }
+            return p->MemoryOffset;
+            // }
+        }
+    }
+}
+//================
+
+int bestFit(struct Process *p, int *UpperLimit)
+{
+    /*if (UpperLimit > 1024)
+        return -1;*/
+    //first process
+    NODE* prev = (NODE*)malloc(sizeof(NODE));
+    if (memory->size == 0)
+    {
+        Insert(memory, p->id, 0, p->MemorySize);
+        Insert(memory, -p->id, p->MemorySize, 1024 - p->MemorySize);
+        p->MemoryOffset = 0;
+        //UpperLimit += p->MemorySize;
+        return 0;
+    }
+    else
+    {
+        NODE *ptr = memory->head;
+        NODE *nowAprropriate = NULL;
+        //NODE *wasAprropriate = NULL;
+        //NODE*Temp=NULL;
+        for (size_t i = 0; i < memory->size; i++)
+        {
+            //first place
+            if(ptr->length>=p->MemorySize&&nowAprropriate==NULL&&ptr->process_id<0)
+            {
+                nowAprropriate=ptr;
+            }
+                //any other place
+            else if(ptr->length>=p->MemorySize&&ptr->process_id<0)
+            {
+                if((nowAprropriate->length)>(ptr->length))
+                {
+                    nowAprropriate=ptr;
+                }
+            }
+            ptr=ptr->next;
+        }
+        ptr=nowAprropriate;
+        //printf("%d\n",memory->head->process_id);
+        //not found
+        if (ptr == NULL)
+        {
+            return -1;
+        }
+        else
+        {
+            //printf("TTTTTTTTTTTTTTTT\n");
+            NODE *temp = getPrev(memory, ptr);
+            int len = ptr->length;
+            int start = ptr->start;
+            int id = ptr->process_id;
+            DeleteNode(memory, ptr->process_id);
+            p->MemoryOffset = start;
+            if (p->MemorySize == len)
+                InsertNextTo(memory, temp, p->id,start, p->MemorySize);
+            else
+            {
+                InsertNextTo(memory, temp, -p->id, start + p->MemorySize, len - (p->MemorySize));
+                InsertNextTo(memory, temp, p->id, start, p->MemorySize);
+            }
+            return p->MemoryOffset;
         }
     }
 }

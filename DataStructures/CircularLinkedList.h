@@ -24,7 +24,7 @@ struct linkedList *creatLinkedList()
     return f;
 }
 
-void Insert(struct linkedList *f,int process_id, int start,int len)
+void CInsert(struct linkedList *f,int process_id, int start,int len)
 {
     NODE *newnode;
     newnode = (NODE *)malloc(sizeof(NODE));
@@ -35,7 +35,7 @@ void Insert(struct linkedList *f,int process_id, int start,int len)
     if (f->size == 0)
     {
         f->head = newnode;
-        f->head->next = NULL;
+        f->head->next = f->head;
         f->size++;
         return;
     }
@@ -52,12 +52,12 @@ void Insert(struct linkedList *f,int process_id, int start,int len)
     if (previous == NULL)
     {
         current->next = newnode;
-        newnode->next = NULL;
+        newnode->next = current;
     }
     else
     {
         previous->next = newnode;
-        newnode->next = current;
+        newnode->next = f->head;
     }
     f->size++;
 }
@@ -67,6 +67,15 @@ int DeleteNode(struct linkedList *f, int process_id)
     if (f->size == 0)
     {
         return 0;
+    }
+    if(f->size == 1){
+        free(f->head);
+        f->head = NULL;
+    }
+
+    NODE* temp = f->head;
+    while(temp != NULL){
+        
     }
     NODE *head = f->head;
     NODE *previous = NULL;
