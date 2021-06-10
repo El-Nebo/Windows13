@@ -1,14 +1,14 @@
-# Windows13
+# 🖥️ Windows13
 Windows13 is an operating system designed to manage processes schedule and theri memory management. It takes as an input a list of all processes and the program simulate how an operating system manage the schedule and memory of these process. The user can choose which algorithm to use in process scheduling and memory management. 
 
-### Process Scheduling Algorithms
+### ⏲️ Process Scheduling Algorithms
 - First Come First Serve (FCFS)
 - Shortest Job First (SJF)
 - Preemptive Highest Priority First (HPF)
 - Shortest Remaining Time Next (SRTN)
 - Round Robin (RR)
 
-### Memory Management Algorithms
+### 🗄️ Memory Management Algorithms
 - First Fit
 - Next Fit
 - Best Fit
